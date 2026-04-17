@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 // useState: stores data that can change over time without reloading the page
 // useEffect: runs code at a specific moment — here, when the page first loads
+// useRouter allows us to navigate programmatically between pages without the user clicking a link
+import { useRouter } from 'next/navigation';
 
 // Define the shape of a chat message
 // role distinguishes who spoke: 'user' is the learner, 'assistant' is the Chronos tutor
@@ -19,6 +21,8 @@ interface UserProfile {
 }
 
 export default function Home() {
+  // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
+  const router = useRouter();
   // Stores the full conversation so it can be displayed on screen and sent to the backend for context
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -31,14 +35,16 @@ export default function Home() {
   // Holds the learner's onboarding profile so the tutor can personalize its teaching style
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
-  // When the page first loads, retrieve the learner's saved onboarding profile from the browser
-  // This allows Chronos to remember who the learner is across sessions without a login system
+  // When the page first loads, check if the learner has completed onboarding
+  // If not, redirect them to the onboarding flow before they can access the tutor
   useEffect(() => {
     const saved = localStorage.getItem('chronos_profile');
     if (saved) {
-      setProfile(JSON.parse(saved)); // Convert the stored text back into a JavaScript object
+      setProfile(JSON.parse(saved)); // Load their saved profile
+    } else {
+      router.push('/onboarding'); // No profile found — send them to onboarding first
     }
-  }, []); // The empty [] ensures this only runs once when the page first opens, not on every re-render
+  }, []);
 
   // Maps the learner's onboarding experience answer to a simple level string
   // This level is sent to the backend so the tutor knows whether to start
