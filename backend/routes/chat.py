@@ -1,15 +1,16 @@
 import os
+import uuid
 from fastapi import APIRouter
 from pydantic import BaseModel
 from anthropic import Anthropic
+from supabase import create_client
 from dotenv import load_dotenv
 
-# read .env file and get API key without having to write
-# directly in the code
 load_dotenv()
 
 router = APIRouter()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 SYSTEM_PROMPT = """You are Chronos, an expert Ancient Greek tutor. 
 You teach Ancient Greek through immersive, encouraging conversation.
@@ -27,10 +28,13 @@ Current user level: {level}
 class ChatMessage(BaseModel):
     message: str
     level: str = "beginner"
+    session_id: str = None
     history: list = []
 
 @router.post("/chat")
 async def chat(body: ChatMessage):
+    session_id = body.session_id or str(uuid.uuid4())
+    
     messages = body.history + [
         {"role": "user", "content": body.message}
     ]
@@ -42,7 +46,16 @@ async def chat(body: ChatMessage):
         messages=messages
     )
     
+    assistant_response = response.content[0].text
+    
+    # Save to Supabase
+    supabase.table("conversations").insert([
+        {"session_id": session_id, "role": "user", "content": body.message},
+        {"session_id": session_id, "role": "assistant", "content": assistant_response}
+    ]).execute()
+    
     return {
-        "response": response.content[0].text,
+        "response": assistant_response,
+        "session_id": session_id,
         "level": body.level
     }
