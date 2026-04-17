@@ -69,8 +69,10 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: input,
-        level: getLevel(),   // Tells the tutor how to pitch its vocabulary and grammar explanations
-        history: messages,   // Previous messages so the tutor doesn't lose track of what was covered
+        level: getLevel(),                              // Tells the tutor how to pitch its vocabulary and grammar explanations
+        goal: profile?.goal || 'General curiosity & history',         // Learner's goal so the tutor focuses on the right texts and vocabulary
+        time_commitment: profile?.time || '30-60 minutes',            // Weekly time so the tutor adjusts the pace of progression
+        history: messages,                             // Previous messages so the tutor doesn't lose track of what was covered
       }),
     });
 
