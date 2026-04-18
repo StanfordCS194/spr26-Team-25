@@ -43,6 +43,9 @@ export default function Home() {
   // Stores the session ID returned by the backend to track this conversation
   const [sessionId, setSessionId] = useState<string | null>(null);
 
+  // Stores the logged-in user's ID to associate conversations with their account
+  const [userId, setUserId] = useState<string | null>(null);
+
   // Stores the vocabulary words learned in this session to display in the sidebar
   const [vocab, setVocab] = useState<VocabWord[]>([]);
 
@@ -61,6 +64,9 @@ export default function Home() {
         router.push('/login');
         return;
       }
+
+      // Save the user's ID so we can send it with every chat message
+      setUserId(session.user.id);
 
       // User is logged in — now check if they've completed onboarding
       const saved = localStorage.getItem('chronos_profile');
@@ -96,6 +102,12 @@ export default function Home() {
   async function sendMessage() {
     if (!input.trim()) return;
 
+    // Read the user's ID directly from the active session at the moment of sending
+    // This is more reliable than using the userId state variable, which may still
+    // be null if the user sends a message before the useEffect has finished loading
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id || null;
+
     const userMessage: Message = { role: 'user', content: input };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
@@ -112,6 +124,7 @@ export default function Home() {
         goal: profile?.goal || 'General curiosity & history',
         time_commitment: profile?.time || '30-60 minutes',
         session_id: sessionId,
+        user_id: currentUserId, // Attach the user's ID so the backend can save it to Supabase
         history: messages,
       }),
     });
@@ -123,6 +136,7 @@ export default function Home() {
       setSessionId(data.session_id);
     }
 
+    // Add Chronos's response to the conversation and re-enable the input
     setMessages([...newMessages, { role: 'assistant', content: data.response }]);
     setLoading(false);
   }

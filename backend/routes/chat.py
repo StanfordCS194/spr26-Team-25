@@ -87,6 +87,7 @@ class ChatMessage(BaseModel):
     goal: str = "General curiosity & history"
     time_commitment: str = "30-60 minutes"
     session_id: Optional[str] = None
+    user_id: Optional[str] = None # The logged-in user's ID from Supabase Auth
     history: list = []
 
 
@@ -117,13 +118,16 @@ async def chat(body: ChatMessage):
     # Save both the user's message and the tutor's response to Supabase
     # so we can track learning progress over time
     supabase.table("conversations").insert([
-        {"session_id": session_id, "role": "user", "content": body.message},
-        {"session_id": session_id, "role": "assistant", "content": assistant_response}
+        {"session_id": session_id, "role": "user", "content": body.message, "user_id": body.user_id},
+        {"session_id": session_id, "role": "assistant", "content": assistant_response, "user_id": body.user_id}
     ]).execute()
 
     # Extract Greek vocabulary introduced in this response and save to vocabulary table
     vocab = extract_vocabulary(assistant_response, session_id)
     if vocab:
+        # Add user_id to each vocabulary word before saving
+        for word in vocab:
+            word["user_id"] = body.user_id
         supabase.table("vocabulary").insert(vocab).execute()
 
     return {
