@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 // useRouter allows us to navigate programmatically between pages without the user clicking a link
 import { useRouter } from 'next/navigation';
+// Supabase client for checking if the user is logged in before showing the chat
+import { supabase } from '../lib/supabase';
 
 // Define the shape of a chat message
 // role distinguishes who spoke: 'user' is the learner, 'assistant' is the Chronos tutor
@@ -50,15 +52,24 @@ export default function Home() {
   // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
   const router = useRouter();
 
-  // When the page first loads, check if the learner has completed onboarding
-  // If not, redirect them to the onboarding flow before they can access the tutor
+  // When the page first loads, check if the user is logged in.
+  // If not, redirect to login. If yes, check if they've completed onboarding.
   useEffect(() => {
-    const saved = localStorage.getItem('chronos_profile');
-    if (saved) {
-      setProfile(JSON.parse(saved));
-    } else {
-      router.push('/onboarding');
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // No active session means the user hasn't logged in yet
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // User is logged in — now check if they've completed onboarding
+      const saved = localStorage.getItem('chronos_profile');
+      if (saved) {
+        setProfile(JSON.parse(saved));
+      } else {
+        router.push('/onboarding');
+      }
+    });
   }, []);
 
   // When the session ID changes, fetch the updated vocabulary list from the backend
