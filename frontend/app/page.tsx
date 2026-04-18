@@ -1,8 +1,6 @@
 'use client'; // This file runs in the browser, not on the server — required for interactivity like typing and clicking
 
 import { useState, useEffect } from 'react';
-// useState: stores data that can change over time without reloading the page
-// useEffect: runs code at a specific moment — here, when the page first loads
 // useRouter allows us to navigate programmatically between pages without the user clicking a link
 import { useRouter } from 'next/navigation';
 
@@ -20,9 +18,14 @@ interface UserProfile {
   time: string;       // Weekly time commitment (e.g. "30–60 minutes")
 }
 
+// Define the shape of a vocabulary word saved in Supabase
+interface VocabWord {
+  greek: string;
+  transliteration: string;
+  meaning: string;
+}
+
 export default function Home() {
-  // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
-  const router = useRouter();
   // Stores the full conversation so it can be displayed on screen and sent to the backend for context
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -35,22 +38,43 @@ export default function Home() {
   // Holds the learner's onboarding profile so the tutor can personalize its teaching style
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
+  // Stores the session ID returned by the backend to track this conversation
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Stores the vocabulary words learned in this session to display in the sidebar
+  const [vocab, setVocab] = useState<VocabWord[]>([]);
+
+  // Controls whether the vocabulary sidebar is visible
+  const [showVocab, setShowVocab] = useState(false);
+
+  // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
+  const router = useRouter();
+
   // When the page first loads, check if the learner has completed onboarding
   // If not, redirect them to the onboarding flow before they can access the tutor
   useEffect(() => {
     const saved = localStorage.getItem('chronos_profile');
     if (saved) {
-      setProfile(JSON.parse(saved)); // Load their saved profile
+      setProfile(JSON.parse(saved));
     } else {
-      router.push('/onboarding'); // No profile found — send them to onboarding first
+      router.push('/onboarding');
     }
   }, []);
+
+  // When the session ID changes, fetch the updated vocabulary list from the backend
+  useEffect(() => {
+    if (sessionId) {
+      fetch(`http://localhost:8000/api/vocabulary/${sessionId}`)
+        .then(res => res.json())
+        .then(data => setVocab(data.vocabulary || []));
+    }
+  }, [sessionId, messages]); // Re-fetch after each new message
 
   // Maps the learner's onboarding experience answer to a simple level string
   // This level is sent to the backend so the tutor knows whether to start
   // with the alphabet and basic vocabulary, or jump into grammar and complex texts
   function getLevel(): string {
-    if (!profile) return 'beginner'; // Default to beginner if no profile is found
+    if (!profile) return 'beginner';
     if (profile.experience === 'No, complete beginner') return 'beginner';
     if (profile.experience === 'A little (alphabet, basic words)') return 'beginner';
     if (profile.experience === 'Some formal study') return 'intermediate';
@@ -59,31 +83,35 @@ export default function Home() {
 
   // Handles sending a message when the learner presses Send or hits Enter
   async function sendMessage() {
-    if (!input.trim()) return; // Prevent sending empty or whitespace-only messages
+    if (!input.trim()) return;
 
-    // Add the learner's message to the screen immediately, before waiting for the tutor's reply
     const userMessage: Message = { role: 'user', content: input };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setInput('');      // Clear the text box so the learner can type their next message
-    setLoading(true);  // Show the "Chronos is thinking..." indicator
+    setInput('');
+    setLoading(true);
 
     // Send the message to the FastAPI backend, which forwards it to the AI tutor
-    // We include the full conversation history so the tutor maintains context across the session
     const response = await fetch('http://localhost:8000/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: input,
-        level: getLevel(),                              // Tells the tutor how to pitch its vocabulary and grammar explanations
-        goal: profile?.goal || 'General curiosity & history',         // Learner's goal so the tutor focuses on the right texts and vocabulary
-        time_commitment: profile?.time || '30-60 minutes',            // Weekly time so the tutor adjusts the pace of progression
-        history: messages,                             // Previous messages so the tutor doesn't lose track of what was covered
+        level: getLevel(),
+        goal: profile?.goal || 'General curiosity & history',
+        time_commitment: profile?.time || '30-60 minutes',
+        session_id: sessionId,
+        history: messages,
       }),
     });
 
-    // Add the tutor's response to the conversation and hide the loading indicator
     const data = await response.json();
+
+    // Save the session ID returned by the backend for vocabulary tracking
+    if (data.session_id && !sessionId) {
+      setSessionId(data.session_id);
+    }
+
     setMessages([...newMessages, { role: 'assistant', content: data.response }]);
     setLoading(false);
   }
@@ -91,68 +119,92 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
-      <p className="text-stone-500 mb-6">Your Ancient Greek AI Tutor</p>
+      <p className="text-stone-500 mb-2">Your Ancient Greek AI Tutor</p>
 
-      {/* If the learner completed onboarding, show their learning goal and detected level below the title */}
+      {/* Show the learner's goal and level, plus a button to toggle the vocabulary sidebar */}
       {profile && (
-        <p className="text-sm text-stone-400 mb-4">
-          Goal: {profile.goal} · Level: {getLevel()}
-        </p>
-      )}
-
-      {/* Main chat window */}
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-md flex flex-col h-[600px]">
-
-        {/* Scrollable area where the conversation history is displayed */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-
-          {/* Prompt shown before the learner sends their first message */}
-          {messages.length === 0 && (
-            <p className="text-center text-stone-400 mt-20">
-              Start a conversation to begin learning Ancient Greek
-            </p>
-          )}
-
-          {/* Render each message — learner messages appear on the right, tutor messages on the left */}
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-stone-800 text-white'     // Learner messages: dark background
-                  : 'bg-stone-100 text-stone-800'  // Tutor messages: light background
-              }`}>
-                {msg.content}
-              </div>
-            </div>
-          ))}
-
-          {/* Shown while the tutor is generating its response */}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-stone-100 text-stone-400 rounded-lg px-4 py-2 text-sm">
-                Chronos is thinking...
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Text input and send button at the bottom of the chat window */}
-        <div className="border-t p-4 flex gap-2">
-          <input
-            className="flex-1 border rounded-lg px-4 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400"
-            placeholder="Type your message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}           // Update state as the learner types
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()} // Allow sending with the Enter key
-          />
+        <div className="flex items-center gap-4 mb-4">
+          <p className="text-sm text-stone-400">
+            Goal: {profile.goal} · Level: {getLevel()}
+          </p>
           <button
-            onClick={sendMessage}
-            disabled={loading} // Prevent double-sending while the tutor is still responding
-            className="bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-50"
+            onClick={() => setShowVocab(!showVocab)}
+            className="text-sm bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 py-1 rounded-lg"
           >
-            Send
+            {showVocab ? 'Hide' : 'Show'} Vocabulary ({vocab.length})
           </button>
         </div>
+      )}
+
+      <div className="w-full max-w-4xl flex gap-4">
+        {/* Main chat window */}
+        <div className="flex-1 bg-white rounded-xl shadow-md flex flex-col h-[600px]">
+
+          {/* Scrollable message area */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {messages.length === 0 && (
+              <p className="text-center text-stone-400 mt-20">
+                Start a conversation to begin learning Ancient Greek
+              </p>
+            )}
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-stone-800 text-white'
+                    : 'bg-stone-100 text-stone-800'
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-stone-100 text-stone-400 rounded-lg px-4 py-2 text-sm">
+                  Chronos is thinking...
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Text input and send button */}
+          <div className="border-t p-4 flex gap-2">
+            <input
+              className="flex-1 border rounded-lg px-4 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400"
+              placeholder="Type your message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={loading}
+              className="bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
+        {/* Vocabulary sidebar — shown when the user clicks "Show Vocabulary" */}
+        {showVocab && (
+          <div className="w-64 bg-white rounded-xl shadow-md p-4 h-[600px] overflow-y-auto">
+            <h2 className="font-semibold text-stone-800 mb-3">Words Learned</h2>
+            {vocab.length === 0 ? (
+              <p className="text-stone-400 text-sm">No words yet — start chatting!</p>
+            ) : (
+              <div className="space-y-3">
+                {vocab.map((word, i) => (
+                  <div key={i} className="border-b border-stone-100 pb-2">
+                    <p className="text-lg text-stone-800">{word.greek}</p>
+                    <p className="text-xs text-stone-400">{word.transliteration}</p>
+                    <p className="text-sm text-stone-600">{word.meaning}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

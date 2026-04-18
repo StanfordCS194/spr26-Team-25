@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 from anthropic import Anthropic
@@ -63,7 +64,7 @@ def extract_vocabulary(text: str, session_id: str) -> list:
     """
     import re
     # Broad pattern: find any Greek characters followed by (transliteration) = meaning
-    pattern = r'([\u0370-\u03FF\u1F00-\u1FFF]+)\*{0,2}\s*\(([^)]+)\)\s*[=:]\s*(.+)'
+    pattern = r'([\u0370-\u03FF\u1F00-\u1FFF]+)\*{0,2}\s*\(([^)]+)\)\*{0,2}\s*[=:]\s*(.+)'
     matches = re.findall(pattern, text)
     
     vocab = []
@@ -76,7 +77,7 @@ def extract_vocabulary(text: str, session_id: str) -> list:
                 "session_id": session_id,
                 "greek": greek,
                 "transliteration": transliteration.strip(),
-                "meaning": meaning.strip()
+                "meaning": meaning.strip().rstrip('*').strip()
             })
     return vocab
 
@@ -85,7 +86,7 @@ class ChatMessage(BaseModel):
     level: str = "beginner"
     goal: str = "General curiosity & history"
     time_commitment: str = "30-60 minutes"
-    session_id: str = None
+    session_id: Optional[str] = None
     history: list = []
 
 
@@ -120,13 +121,6 @@ async def chat(body: ChatMessage):
         {"session_id": session_id, "role": "assistant", "content": assistant_response}
     ]).execute()
 
-    # Save both the user's message and the tutor's response to Supabase
-    # so we can track learning progress over time
-    supabase.table("conversations").insert([
-        {"session_id": session_id, "role": "user", "content": body.message},
-        {"session_id": session_id, "role": "assistant", "content": assistant_response}
-    ]).execute()
-
     # Extract Greek vocabulary introduced in this response and save to vocabulary table
     vocab = extract_vocabulary(assistant_response, session_id)
     if vocab:
@@ -137,3 +131,17 @@ async def chat(body: ChatMessage):
         "session_id": session_id,
         "level": body.level
     }
+
+@router.get("/vocabulary/{session_id}")
+async def get_vocabulary(session_id: str):
+    """
+    Returns all Greek vocabulary words learned in a given session.
+    The frontend calls this endpoint to display the user's personal vocabulary list.
+    """
+    result = supabase.table("vocabulary")\
+        .select("*")\
+        .eq("session_id", session_id)\
+        .order("created_at")\
+        .execute()
+    
+    return {"vocabulary": result.data}
