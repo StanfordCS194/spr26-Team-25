@@ -53,6 +53,33 @@ ALWAYS:
 - Never break character as a knowledgeable, encouraging tutor
 """
 
+def extract_vocabulary(text: str, session_id: str) -> list:
+    """
+    Scans the tutor's response for Greek words in multiple formats:
+    - ψυχή (psychḗ) = soul
+    - **ψυχή (psychḗ)** = soul  
+    - ## 1. **ψυχή (psychḗ)** = soul
+    Extracts and formats them for saving to the vocabulary table.
+    """
+    import re
+    # Broad pattern: find any Greek characters followed by (transliteration) = meaning
+    pattern = r'([\u0370-\u03FF\u1F00-\u1FFF]+)\*{0,2}\s*\(([^)]+)\)\s*[=:]\s*(.+)'
+    matches = re.findall(pattern, text)
+    
+    vocab = []
+    seen = set()  # Avoid saving duplicate words in the same response
+    for greek, transliteration, meaning in matches:
+        greek = greek.strip()
+        if greek not in seen:
+            seen.add(greek)
+            vocab.append({
+                "session_id": session_id,
+                "greek": greek,
+                "transliteration": transliteration.strip(),
+                "meaning": meaning.strip()
+            })
+    return vocab
+
 class ChatMessage(BaseModel):
     message: str
     level: str = "beginner"
@@ -92,6 +119,18 @@ async def chat(body: ChatMessage):
         {"session_id": session_id, "role": "user", "content": body.message},
         {"session_id": session_id, "role": "assistant", "content": assistant_response}
     ]).execute()
+
+    # Save both the user's message and the tutor's response to Supabase
+    # so we can track learning progress over time
+    supabase.table("conversations").insert([
+        {"session_id": session_id, "role": "user", "content": body.message},
+        {"session_id": session_id, "role": "assistant", "content": assistant_response}
+    ]).execute()
+
+    # Extract Greek vocabulary introduced in this response and save to vocabulary table
+    vocab = extract_vocabulary(assistant_response, session_id)
+    if vocab:
+        supabase.table("vocabulary").insert(vocab).execute()
 
     return {
         "response": assistant_response,
