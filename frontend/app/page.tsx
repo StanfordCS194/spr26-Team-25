@@ -81,7 +81,7 @@ export default function Home() {
   // When the session ID changes, fetch the updated vocabulary list from the backend
   useEffect(() => {
     if (sessionId) {
-      fetch(`http://localhost:8000/api/vocabulary/${sessionId}`)
+      fetch(`https://spr26-team-25-production.up.railway.app/api/vocabulary/${sessionId}`)
         .then(res => res.json())
         .then(data => setVocab(data.vocabulary || []));
     }
@@ -115,7 +115,7 @@ export default function Home() {
     setLoading(true);
 
     // Send the message to the FastAPI backend, which forwards it to the AI tutor
-    const response = await fetch('http://localhost:8000/api/chat', {
+    const response = await fetch('https://spr26-team-25-production.up.railway.app/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
