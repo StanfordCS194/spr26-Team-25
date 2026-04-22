@@ -143,7 +143,16 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
+      {/* header — tutor avatar + title side by side */}
+      <div className="flex items-center gap-3 mb-2">
+        <img
+          src="/greek-tutor-female.jpg"
+          alt="Chronos tutor"
+          className="w-12 h-12 rounded-full object-cover shadow-md"
+        />
+        <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
+      </div>
+      
       <p className="text-stone-500 mb-2">Your Ancient Greek AI Tutor</p>
 
       {/* Show the learner's goal and level, plus a button to toggle the vocabulary sidebar */}
@@ -174,6 +183,16 @@ export default function Home() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+
+                {/* show tutor avatar to the left of every assistant message */}
+                {msg.role === 'assistant' && (
+                  <img
+                    src="/greek-tutor-female.jpg"
+                    alt="Chronos tutor"
+                    className="w-8 h-8 rounded-full object-cover mr-2 mt-1 flex-shrink-0"
+                  />
+                )}
+
                 <div className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
                   msg.role === 'user'
                     ? 'bg-stone-800 text-white'
@@ -183,8 +202,15 @@ export default function Home() {
                 </div>
               </div>
             ))}
+
+            {/* show avatar next to the loading indicator too, for consistency */}
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex items-start justify-start">
+                <img
+                  src="/greek-tutor-female.jpg"
+                  alt="Chronos tutor"
+                  className="w-8 h-8 rounded-full object-cover mr-2 mt-1 flex-shrink-0"
+                />
                 <div className="bg-stone-100 text-stone-400 rounded-lg px-4 py-2 text-sm">
                   Chronos is thinking...
                 </div>
