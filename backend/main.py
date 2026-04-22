@@ -1,20 +1,55 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from routes.chat import router as chat_router
+from supabase import create_client
+import os
 
 app = FastAPI(title="Chronos API")
 
-# Allow requests from any origin. This is needed for the frontend on Vercel to reach the backend on Railway
+# CORSMiddleware allows the frontend on Vercel to make HTTP requests to this backend (on Railway). Without this, browsers
+# block cross-origin requests automatically. 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # allows any domain to call this API , change in future to actual frontend URL 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# register chat routes defined in routes/chat.py. All endpoints will be accessible under /api prefix
+# e.g., /api/cht instead of just /chat
 app.include_router(chat_router, prefix="/api")
 
+# initializes the Supabase client using the environment variables stored in Railway (backend). 
+# os.environ["SUPABASE_URL"] reads the variable named "SUPABASE_URL" from te environment, which is safer than 
+# hardcoding secrets directly in the code 
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+
+# Pydantic model that defines the shape of the request body for the onboarding endpoint.
+# FastAPI uses this to automatically validate incoming JSON. If any field is missing or the wrong type,
+# it returns a 422 error before our code even runs. 
+class OnboardingResponse(BaseModel):
+    experience: str      # e.g. "No, complete beginner"
+    goal: str            # e.g. "Read philosophy (Plato, Aristotle)"
+    time_commitment: str # e.g. "30–60 minutes"
+
+# POST /onboarding is called by the front end when a user finishes the onboarding process.
+# This saves their 3 answers to the onboarding_responses table in Supabase so that we can analyze
+# what kinds of users are signing up (for the Customer Discovery assignment)
+@app.post("/onboarding")
+async def save_onboarding(data: OnboardingResponse):
+    supabase.table("onboarding_responses").insert({
+        "experience": data.experience,
+        "goal": data.goal,
+        "time_commitment": data.time_commitment,
+        # note: we don't need to pass "id" or "created_at" —
+        # Supabase fills those in automatically via DEFAULT values in the table schema
+    }).execute()
+    return {"status": "ok"}
+
+# Health check endpoint. Railway and other platforms ping GET / to verify that the server is running. 
+# Additionally useful to confirm a successful deploy. 
 @app.get("/")
 def root():
     return {"message": "Chronos API is running"}
