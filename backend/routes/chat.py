@@ -6,11 +6,17 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
+from fastapi.responses import StreamingResponse
+import io
+# for talking to tutor
 
 load_dotenv()
 
 router = APIRouter()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+# ElevenLabs client for converting Chronos' text responses to realistic speech
+eleven = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 # System prompt is the core of Chronos, defining the tutor's personality, 
@@ -149,3 +155,29 @@ async def get_vocabulary(session_id: str):
         .execute()
     
     return {"vocabulary": result.data}
+
+@router.post("/speak")
+async def speak(body: dict):
+    """
+    Receives text from the frontend and returns an audio stream using ElevenLabs TTS.
+    The frontend plays this audio directly in the browser so the user hears Chronos speaking.
+    """
+    text = body.get("text", "")
+
+    # Generate audio using ElevenLabs. "Rachel" is a clear, warm female English voice
+    # Voice ID for Rachel: 21m00Tcm4TlvDq8ikWAM
+    audio = eleven.text_to_speech.convert(
+        text=text,
+        voice_id="21m00Tcm4TlvDq8ikWAM",
+        model_id="eleven_multilingual_v2",  # Supports both English and Greek pronunciation
+        output_format="mp3_44100_128",
+    )
+
+    # Collect all audio chunks into a single bytes buffer
+    audio_bytes = b"".join(audio)
+
+    # Return the audio as a streaming MP3 response the browser can play directly
+    return StreamingResponse(
+        io.BytesIO(audio_bytes),
+        media_type="audio/mpeg"
+    )

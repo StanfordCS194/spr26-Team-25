@@ -134,6 +134,29 @@ export default function Home() {
     recognition.start();
   }
 
+  // Send Chronos' response to the backend, which uses ElevenLabs to generate realistic speech audio.
+  // The browser then plays the returned MP3 directly. 
+  async function speak(text: string) {
+    try {
+      // Send the text to the backend, which calls ElevenLabs and returns an MP3 audio file
+      const response = await fetch('https://spr26-team-25-production.up.railway.app/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      // Convert the response into a blob (binary audio data) and create a playable URL
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Play the audio automatically when it's ready
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (error) {
+      console.error('TTS error:', error);
+    }
+  }
+
   // Handles sending a message when the learner presses Send or hits Enter
   async function sendMessage() {
     if (!input.trim()) return;
@@ -172,8 +195,9 @@ export default function Home() {
       setSessionId(data.session_id);
     }
 
-    // Add Chronos's response to the conversation and re-enable the input
+    // Add Chronos's response to the conversation, read it aloud, and re-enable the input
     setMessages([...newMessages, { role: 'assistant', content: data.response }]);
+    speak(data.response);
     setLoading(false);
   }
 
