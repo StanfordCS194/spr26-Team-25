@@ -52,6 +52,9 @@ export default function Home() {
   // Controls whether the vocabulary sidebar is visible
   const [showVocab, setShowVocab] = useState(false);
 
+  // Tracks whether the microphone is currently listening for voice input
+  const [isListening, setIsListening] = useState(false);
+
   // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
   const router = useRouter();
 
@@ -96,6 +99,39 @@ export default function Home() {
     if (profile.experience === 'A little (alphabet, basic words)') return 'beginner';
     if (profile.experience === 'Some formal study') return 'intermediate';
     return 'advanced';
+  }
+
+  // Activates the browser's Web Speech API to transcribe the user's voice into text.
+  // The transcribed text is placed into the input field so the user can review it before sending. 
+  // This only works in Chrome, and other browsers do not fully support the Web Speech API
+  function startListening() {
+    // SpeechRecognition is a built-in browser API — no external library needed
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice input is only supported in Chrome.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    // Set the language to English — change to 'el-GR' for Greek input
+    recognition.lang = 'en-US';
+    // Return only the final result, not partial words as they're being spoken
+    recognition.interimResults = false;
+
+    setIsListening(true);
+
+    // When the browser finishes transcribing, put the result in the input field
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setIsListening(false);
+    };
+
+    // If something goes wrong (e.g. no microphone access), stop listening
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
   }
 
   // Handles sending a message when the learner presses Send or hits Enter
@@ -227,6 +263,19 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             />
+            {/* Microphone button - uses the browser's built-in Web Speech API to convert voice to text. While listening, the button turns red and pulses so that the user knows it is active. The button is disabled when a message is loading or already listening. */}
+            <button
+              onClick={startListening}
+              disabled={loading || isListening}
+              className={`px-4 py-2 rounded-lg text-sm ${
+                isListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-stone-200 text-stone-700 hover:bg-stone-300'
+              }`}
+            >
+              {isListening ? '🎙️ Listening...' : '🎙️'}
+            </button>
+            {/* Send button, which is disabled while waiting for a response to prevent duplicate messages */}
             <button
               onClick={sendMessage}
               disabled={loading}
