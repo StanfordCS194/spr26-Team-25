@@ -12,8 +12,19 @@ import io
 # for talking to tutor
 import re
 # para regex
+import json
+import tempfile
 
 load_dotenv()
+
+# Load Google Cloud credentials from environment variable (Railway deployment)
+# Instead of using a JSON file (which would require committing secrets to git),
+# we store the credentials JSON as an env var and write it to a temp file at the startup
+creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+if creds_json:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(creds_json)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = f.name
 
 router = APIRouter()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
