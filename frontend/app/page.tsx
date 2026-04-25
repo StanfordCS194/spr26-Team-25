@@ -139,7 +139,7 @@ export default function Home() {
   async function speak(text: string) {
     try {
       // Send the text to the backend, which calls ElevenLabs and returns an MP3 audio file
-      const response = await fetch('https://spr26-team-25-production.up.railway.app/api/speak', {
+      const response = await fetch('http://localhost:8000/api/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),

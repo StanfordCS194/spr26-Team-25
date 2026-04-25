@@ -6,17 +6,17 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
-from elevenlabs.client import ElevenLabs
+from google.cloud import texttospeech
 from fastapi.responses import StreamingResponse
 import io
 # for talking to tutor
+import re
+# para regex
 
 load_dotenv()
 
 router = APIRouter()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-# ElevenLabs client for converting Chronos' text responses to realistic speech
-eleven = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 # System prompt is the core of Chronos, defining the tutor's personality, 
@@ -159,25 +159,52 @@ async def get_vocabulary(session_id: str):
 @router.post("/speak")
 async def speak(body: dict):
     """
-    Receives text from the frontend and returns an audio stream using ElevenLabs TTS.
-    The frontend plays this audio directly in the browser so the user hears Chronos speaking.
+    Receives text from the frontend and returns an audio stream using Google Cloud TTS
+    Uses a Greek female WaveNet voice that handles both English and Greek naturally.
     """
     text = body.get("text", "")
+    # Remove markdown formatting so the TTS doesn't read symbols like asterisks out loud
+    text = re.sub(r'\*+', '', text)        # Remove asterisks
+    text = re.sub(r'#{1,6}\s*', '', text)  # Remove headers (##, ###, etc.)
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # Remove links, keep text
 
-    # Generate audio using ElevenLabs. "Rachel" is a clear, warm female English voice
-    # Voice ID for Rachel: 21m00Tcm4TlvDq8ikWAM
-    audio = eleven.text_to_speech.convert(
-        text=text,
-        voice_id="21m00Tcm4TlvDq8ikWAM",
-        model_id="eleven_multilingual_v2",  # Supports both English and Greek pronunciation
-        output_format="mp3_44100_128",
+
+    # Initialize the Google Cloud TTS client — credentials are loaded automatically
+    # from the GOOGLE_APPLICATION_CREDENTIALS environment variable
+    tts_client = texttospeech.TextToSpeechClient()
+
+    # Wrap the text in a SynthesisInput object
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    # Use a Greek female WaveNet voice. Thick Greek accent. 
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="el-GR",
+        name="el-GR-Wavenet-A",
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
     )
 
-    # Collect all audio chunks into a single bytes buffer
-    audio_bytes = b"".join(audio)
+    # American voice. Don't really like it because it does not pronounce
+    # Greek words right. 
+    # voice = texttospeech.VoiceSelectionParams(
+    #     language_code="en-US",
+    #     name="en-US-Neural2-F",
+    #     ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    # )
+
+    # Request MP3 audio output
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    # Generate the audio
+    response = tts_client.synthesize_speech(
+        input=synthesis_input,
+        voice=voice,
+        audio_config=audio_config
+    )
 
     # Return the audio as a streaming MP3 response the browser can play directly
     return StreamingResponse(
-        io.BytesIO(audio_bytes),
+        io.BytesIO(response.audio_content),
         media_type="audio/mpeg"
     )
