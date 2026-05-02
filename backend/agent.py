@@ -1,11 +1,13 @@
 import asyncio
+import json
 import logging
 import os
+import re
 import tempfile
 import uuid
 
 from dotenv import load_dotenv
-from livekit import agents
+from livekit import agents, rtc
 from livekit.agents import AgentSession, AgentServer, APIConnectOptions, JobContext
 from livekit.agents import tts as agents_tts
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
@@ -16,10 +18,7 @@ load_dotenv()
 logger = logging.getLogger("chronos-eirini")
 logger.setLevel(logging.INFO)
 
-# Google Cloud TTS requires a service account JSON for authentication.
-# We store that JSON as a single env variable (GOOGLE_CREDENTIALS_JSON) in .env,
-# write it to a temp file at startup, and point the Google SDK to it.
-# This is the same approach used in routes/chat.py for the REST endpoint.
+# write Google credentials from .env to a temp file so the SDK can find them
 _gcp_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if _gcp_creds_json:
     _tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
@@ -28,62 +27,36 @@ if _gcp_creds_json:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _tmp.name
 
 
-# livekit-agents ships a Google TTS plugin (livekit.plugins.google) but it has
-# a bug in v1.5.x where its internal async generator crashes with:
-#   RuntimeError: aclose(): asynchronous generator is already running
-# This happens in both streaming and non-streaming mode.
-#
-# The fix is to bypass the plugin entirely and call the Google Cloud TTS SDK
-# directly using the synchronous client inside run_in_executor.
-# run_in_executor runs blocking code on a thread pool without blocking the
-# async event loop, and has no async generator so there is no crash.
-#
-# To plug into livekit-agents we subclass two base classes:
-#   agents_tts.TTS           the provider that holds config and creates streams
-#   agents_tts.ChunkedStream one synthesis request that does the actual work
+# custom TTS because livekit.plugins.google has a bug in v1.5.x that crashes
+# we call the Google SDK directly using run_in_executor to avoid the issue
 
 class GoogleTTS(agents_tts.TTS):
-    """Google Cloud TTS provider for livekit-agents."""
 
     def __init__(self, voice_name="el-GR-Wavenet-A", language_code="el-GR", sample_rate=24000):
         super().__init__(
-            # streaming=False tells livekit-agents to call synthesize() for
-            # one-shot synthesis instead of stream() for real-time token-by-token.
             capabilities=agents_tts.TTSCapabilities(streaming=False),
             sample_rate=sample_rate,
             num_channels=1,
         )
         self._voice_name = voice_name
         self._language_code = language_code
-
-        # Import inside __init__ so the module still loads if the package is
-        # missing. You get a clear error at runtime instead of at import time.
         from google.cloud import texttospeech
         self._texttospeech = texttospeech
-
-        # Synchronous client that is safe to call from a thread pool
         self._client = texttospeech.TextToSpeechClient()
 
-    def synthesize(
-        self,
-        text: str,
-        *,
-        conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS,
-    ) -> agents_tts.ChunkedStream:
-        # livekit-agents calls this method whenever the LLM produces a response
-        # that needs to be spoken. We return a ChunkedStream that will do the work.
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
+        # called by livekit-agents each time it needs to speak a piece of text
         return _GoogleTTSStream(tts=self, input_text=text, conn_options=conn_options)
 
 
 class _GoogleTTSStream(agents_tts.ChunkedStream):
-    """One TTS request: takes a text string and pushes audio frames to livekit-agents."""
 
     async def _run(self, output_emitter: agents_tts.AudioEmitter) -> None:
+        # runs the synchronous Google TTS call on a background thread so it
+        # does not block the async event loop while waiting for Google's response
         tts: GoogleTTS = self._tts
         texttospeech = tts._texttospeech
 
-        # run_in_executor runs the synchronous API call on a background thread.
-        # This keeps the async event loop free while we wait for Google's response.
         response = await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: tts._client.synthesize_speech(
@@ -93,17 +66,13 @@ class _GoogleTTSStream(agents_tts.ChunkedStream):
                     name=tts._voice_name,
                 ),
                 audio_config=texttospeech.AudioConfig(
-                    # LINEAR16 returns a standard WAV file with a header.
-                    # We set mime_type to "audio/wav" below so the AudioEmitter
-                    # knows to decode the bytes using a WAV stream decoder.
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     sample_rate_hertz=tts._sample_rate,
                 ),
             ),
         )
 
-        # Tell the AudioEmitter what format the bytes are in, then push them.
-        # The emitter handles chunking, timing, and forwarding to the WebRTC track.
+        # initialize tells the emitter the format, then push sends the audio bytes
         output_emitter.initialize(
             request_id=str(uuid.uuid4()),
             sample_rate=tts._sample_rate,
@@ -113,62 +82,148 @@ class _GoogleTTSStream(agents_tts.ChunkedStream):
         output_emitter.push(response.audio_content)
 
 
-# Key design decisions for the system prompt:
-# Always responds in Modern Greek so students hear Greek constantly.
-# Understands English input so English speakers can participate.
-# No markdown because TTS would read "**word**" as "asterisk asterisk word".
-# Short sentences and Socratic style work better in voice than in text.
+def _has_greek(text: str) -> bool:
+    # returns True if the text contains any Greek Unicode characters
+    # used to detect whether a sentence from the LLM is Greek or English
+    # livekit-agents splits LLM output into sentences before calling synthesize,
+    # so EN: translation sentences arrive without their tag — we detect them this way
+    return any('\u0370' <= c <= '\u03FF' or '\u1F00' <= c <= '\u1FFF' for c in text)
+
+
+# CaptionisingGoogleTTS wraps GoogleTTS to intercept the LLM text before synthesis.
+# In livekit-agents v1.5.x, before_tts_cb was removed from AgentSession and Agent,
+# so we handle the interception inside the TTS class itself.
+# Every time livekit-agents calls synthesize(), this class:
+#   1. parses the GR:/EN: format from the LLM response
+#   2. skips synthesis entirely if the sentence has no Greek characters
+#   3. fires off the caption data to the frontend via the LiveKit data channel
+#   4. passes only the Greek text down to _GoogleTTSStream so the voice stays in Greek
+
+class CaptionisingGoogleTTS(GoogleTTS):
+
+    def __init__(self, room: rtc.Room, **kwargs):
+        super().__init__(**kwargs)
+        self._room = room
+        # stores the english translation from a standalone EN: synthesize call
+        # so it can be attached to the greek caption that arrives just before it
+        self._pending_english: str = ""
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
+        logger.info(f"synthesize received: {repr(text)}")
+        greek, english = parse_response(text)
+
+        if not greek or not _has_greek(greek):
+            # standalone EN: line, store it so _send_caption can pick it up
+            # after its 0.5s wait (the GR call always arrives first, so by the
+            # time it wakes up this will already be set)
+            if english:
+                self._pending_english = english
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+
+        word_count = len(greek.split())
+        display_ms = max(3000, int(word_count * 400))
+
+        # pass whatever english we already have from parse_response (may be empty
+        # if GR and EN came in separate synthesize calls)
+        asyncio.ensure_future(self._send_caption(greek, english, display_ms))
+        return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options)
+
+    async def _send_caption(self, greek: str, english: str, display_ms: int) -> None:
+        # wait long enough for the EN: synthesize call to arrive and set
+        # _pending_english, observed delta is always 200-400ms, so 600ms is safe
+        await asyncio.sleep(0.6)
+
+        # if english was empty when GR arrived, pick up the translation that
+        # arrived while we slept, then clear it so the next response starts fresh
+        if not english and self._pending_english:
+            english = self._pending_english
+        self._pending_english = ""
+
+        # always send a single complete message with both greek and english
+        # the frontend never needs to patch a second message onto the first
+        caption_data = json.dumps({
+            "greek": greek,
+            "english": english,
+            "display_ms": display_ms,
+        }).encode()
+        await self._room.local_participant.publish_data(
+            caption_data,
+            topic="captions",
+        )
+
+
+# Claude always responds in the format: GR: [greek text] EN: [english translation]
+# CaptionisingGoogleTTS strips the format before sending to TTS
+# and sends both parts to the frontend as captions via the data channel.
+# Responses are limited to ONE sentence so that livekit-agents' sentence splitter
+# does not separate the GR: and EN: parts into different synthesize() calls.
 SYSTEM_PROMPT = """
 You are Ειρήνη (Irini), an expert Ancient Greek tutor with deep knowledge of
 classical literature, philosophy, and ancient history.
 
 You understand both English and Greek from your students, but you ALWAYS respond
-in Greek only. Your students will read English subtitles separately, so never
-switch to English even if they speak to you in English.
+in Greek only for the spoken part. Your students will read English subtitles.
 
-You teach Ancient Greek vocabulary, grammar, and texts using simple, clear
-Modern Greek so beginners can follow along.
+IMPORTANT: Every response must follow this exact format:
+GR: [your response in Modern Greek]
+EN: [English translation of exactly what you said in Greek]
 
-When introducing an Ancient Greek word, say the word clearly and then give
-its meaning in Greek. Keep your explanations short and conversational since
-this is a voice interaction.
+Example:
+GR: Καλησπέρα! Πώς σε λένε;
+EN: Good evening! What is your name?
 
-Your teaching style is warm, encouraging, and Socratic. Use short sentences.
-Check for understanding often. Gently correct mistakes by restating the correct
-form. Adjust your level based on how the student responds.
+Never deviate from this format. Never add any other text outside it.
 
+Keep EVERY response to ONE sentence maximum.
+Each response must be a single GR:/EN: pair — never more than one sentence per response.
+
+Your teaching style is warm, encouraging, and Socratic.
+Check for understanding often. Gently correct mistakes by restating the correct form.
+Adjust your level based on how the student responds.
 Never use markdown formatting, bullet points, or symbols in your responses.
-Speak naturally as if having a conversation.
-Speak slowly and clearly. Pause between sentences.
+Speak slowly and clearly.
 """
 
 server = AgentServer()
 
 
+def parse_response(text: str) -> tuple[str, str]:
+    # splits Claude's response into the greek and english parts
+    # if the format is missing or malformed, falls back to treating the whole text as greek
+    # but only if the text doesn't look like a standalone EN: chunk,  in that case
+    # we return empty greek so synthesize() knows to skip it entirely
+    greek = ""
+    english = ""
+    gr_match = re.search(r'GR:\s*(.+?)(?:\nEN:|$)', text, re.DOTALL)
+    en_match = re.search(r'EN:\s*(.+?)$', text, re.DOTALL)
+    if gr_match:
+        greek = gr_match.group(1).strip()
+    if en_match:
+        english = en_match.group(1).strip()
+    # only fall back to raw text if it doesn't look like an EN: chunk
+    if not greek and not text.strip().startswith("EN:"):
+        greek = text.strip()
+    return greek, english
+
+
 @server.rtc_session(agent_name="eirini")
 async def run_eirini(ctx: JobContext):
-    """
-    Called by livekit-agents once per WebRTC session (one student connection).
-    Wires together STT, LLM, and TTS into a live voice pipeline.
-    """
+    # called once per student session, wires STT + LLM + TTS into a voice pipeline
     logger.info("New student session starting")
 
     session = AgentSession(
-        # Deepgram Nova 3 in multilingual mode handles both English and
-        # Greek input from the student without needing to switch modes.
         stt=deepgram.STT(model="nova-3", language="multi"),
-
-        # Claude Haiku is fast and cheap, good enough for conversational tutoring.
-        # Same model used in the Chronos text chat backend.
         llm=anthropic.LLM(model="claude-haiku-4-5-20251001"),
-
-        # Our custom Google TTS defined above. Greek voice, no plugin bugs.
-        tts=GoogleTTS(voice_name="el-GR-Wavenet-A", language_code="el-GR"),
+        # CaptionisingGoogleTTS needs ctx.room to publish captions,
+        # so it is created here inside run_eirini where ctx is available
+        tts=CaptionisingGoogleTTS(
+            room=ctx.room,
+            voice_name="el-GR-Wavenet-A",
+            language_code="el-GR",
+        ),
     )
 
-    # Simli renders Ειρήνη as a lip-synced avatar video stream.
-    # Commented out while testing TTS to avoid unnecessarily burning Simli minutes.
-    # Uncomment once audio is confirmed working end-to-end.
+    # Simli avatar — uncomment once TTS is confirmed working end-to-end
     # avatar = simli.AvatarSession(
     #     simli_config=simli.SimliConfig(
     #         api_key=os.getenv("SIMLI_API_KEY"),
@@ -176,14 +231,18 @@ async def run_eirini(ctx: JobContext):
     #     ),
     # )
     # await avatar.start(session, room=ctx.room)
-    # logger.info("Ειρήνη avatar joined the room")
 
     await session.start(
-        agent=agents.Agent(instructions=SYSTEM_PROMPT),
+        agent=agents.Agent(
+            instructions=SYSTEM_PROMPT,
+        ),
         room=ctx.room,
     )
-    logger.info("Ειρήνη session started")
-
 
 if __name__ == "__main__":
-    agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=run_eirini, agent_name="eirini"))
+    agents.cli.run_app(
+        agents.WorkerOptions(
+            entrypoint_fnc=run_eirini,
+            agent_name="eirini",  # must match the name used in create_dispatch
+        )
+    )
