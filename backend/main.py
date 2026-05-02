@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from routes.chat import router as chat_router
+from routes.livekit import router as livekit_router # generates LiveKit tokens for the voice tutor
 from supabase import create_client
 import os
 
@@ -20,6 +21,9 @@ app.add_middleware(
 # register chat routes defined in routes/chat.py. All endpoints will be accessible under /api prefix
 # e.g., /api/cht instead of just /chat
 app.include_router(chat_router, prefix="/api")
+
+# register LiveKit routes: voice tutor token generation
+app.include_router(livekit_router, prefix="/api")
 
 # initializes the Supabase client using the environment variables stored in Railway (backend). 
 # os.environ["SUPABASE_URL"] reads the variable named "SUPABASE_URL" from te environment, which is safer than 
