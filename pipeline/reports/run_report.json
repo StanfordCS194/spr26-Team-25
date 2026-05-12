@@ -1,0 +1,320 @@
+{
+  "generated": "2026-05-12",
+  "dialect": "ayacucho-chanka",
+  "sources": {
+    "parallel": "somosnlp-hackathon-2022/spanish-to-quechua",
+    "monolingual": "Llamacha/monolingual-quechua-iic"
+  },
+  "parallel_cleaning": {
+    "total": 5000,
+    "kept": 4642,
+    "dropped": {
+      "es_too_short": 22,
+      "qu_too_short": 304,
+      "spanish_contamination": 8,
+      "length_ratio": 11,
+      "qu_too_long": 13
+    }
+  },
+  "monolingual_cleaning": {
+    "total": 10000,
+    "kept": 6972,
+    "dropped": {
+      "too_short": 2685,
+      "spanish_contamination": 189,
+      "too_long": 154
+    }
+  },
+  "vocabulary": {
+    "total_lemmas": 16348,
+    "exported_lemmas": 3998,
+    "total_surface_forms": 27735,
+    "frequency_band_distribution": {
+      "core": 100,
+      "high": 400,
+      "medium": 1500,
+      "low": 3000,
+      "rare": 11348
+    },
+    "proficiency_level_distribution": {
+      "A1": 98,
+      "A2": 391,
+      "B1": 1433,
+      "B2": 14426
+    },
+    "pos_distribution": {
+      "other": 10656,
+      "verb": 2605,
+      "noun": 3087
+    },
+    "semantic_field_distribution": {
+      "time": 1591,
+      "cosmology": 1575,
+      "kinship": 994,
+      "social": 988,
+      "location": 899,
+      "numbers": 696,
+      "cognition": 636,
+      "body": 457,
+      "agriculture": 438,
+      "possession": 411,
+      "communication": 341,
+      "emotions": 340,
+      "food": 250,
+      "motion": 207,
+      "nature": 188
+    },
+    "top_50_lemmas": [
+      {
+        "lemma": "chay",
+        "frequency": 1949,
+        "band": "core"
+      },
+      {
+        "lemma": "lla",
+        "frequency": 1536,
+        "band": "core"
+      },
+      {
+        "lemma": "mana",
+        "frequency": 1489,
+        "band": "core"
+      },
+      {
+        "lemma": "hina",
+        "frequency": 1456,
+        "band": "core"
+      },
+      {
+        "lemma": "dio",
+        "frequency": 1290,
+        "band": "core"
+      },
+      {
+        "lemma": "kay",
+        "frequency": 1238,
+        "band": "core"
+      },
+      {
+        "lemma": "runa",
+        "frequency": 1214,
+        "band": "core"
+      },
+      {
+        "lemma": "allin",
+        "frequency": 1112,
+        "band": "core"
+      },
+      {
+        "lemma": "ima",
+        "frequency": 1054,
+        "band": "core"
+      },
+      {
+        "lemma": "suyu",
+        "frequency": 870,
+        "band": "core"
+      },
+      {
+        "lemma": "huk",
+        "frequency": 865,
+        "band": "core"
+      },
+      {
+        "lemma": "nisqaqa",
+        "frequency": 705,
+        "band": "core"
+      },
+      {
+        "lemma": "simi",
+        "frequency": 705,
+        "band": "core"
+      },
+      {
+        "lemma": "de",
+        "frequency": 609,
+        "band": "core"
+      },
+      {
+        "lemma": "nisqa",
+        "frequency": 566,
+        "band": "core"
+      },
+      {
+        "lemma": "wata",
+        "frequency": 550,
+        "band": "core"
+      },
+      {
+        "lemma": "kaq",
+        "frequency": 523,
+        "band": "core"
+      },
+      {
+        "lemma": "mama",
+        "frequency": 501,
+        "band": "core"
+      },
+      {
+        "lemma": "imay",
+        "frequency": 451,
+        "band": "core"
+      },
+      {
+        "lemma": "qillqa",
+        "frequency": 425,
+        "band": "core"
+      },
+      {
+        "lemma": "pacha",
+        "frequency": 424,
+        "band": "core"
+      },
+      {
+        "lemma": "pruwinsya",
+        "frequency": 404,
+        "band": "core"
+      },
+      {
+        "lemma": "nis",
+        "frequency": 391,
+        "band": "core"
+      },
+      {
+        "lemma": "tukuy",
+        "frequency": 375,
+        "band": "core"
+      },
+      {
+        "lemma": "pay",
+        "frequency": 372,
+        "band": "core"
+      },
+      {
+        "lemma": "hatun",
+        "frequency": 370,
+        "band": "core"
+      },
+      {
+        "lemma": "hawa",
+        "frequency": 370,
+        "band": "core"
+      },
+      {
+        "lemma": "jehova",
+        "frequency": 363,
+        "band": "core"
+      },
+      {
+        "lemma": "suti",
+        "frequency": 335,
+        "band": "core"
+      },
+      {
+        "lemma": "ichaqa",
+        "frequency": 324,
+        "band": "core"
+      },
+      {
+        "lemma": "kasqan",
+        "frequency": 315,
+        "band": "core"
+      },
+      {
+        "lemma": "kanan",
+        "frequency": 306,
+        "band": "core"
+      },
+      {
+        "lemma": "karqa",
+        "frequency": 304,
+        "band": "core"
+      },
+      {
+        "lemma": "killa",
+        "frequency": 299,
+        "band": "core"
+      },
+      {
+        "lemma": "jesu",
+        "frequency": 294,
+        "band": "core"
+      },
+      {
+        "lemma": "biblia",
+        "frequency": 287,
+        "band": "core"
+      },
+      {
+        "lemma": "common",
+        "frequency": 282,
+        "band": "core"
+      },
+      {
+        "lemma": "ñiqin",
+        "frequency": 269,
+        "band": "core"
+      },
+      {
+        "lemma": "p'a",
+        "frequency": 263,
+        "band": "core"
+      },
+      {
+        "lemma": "rura",
+        "frequency": 253,
+        "band": "core"
+      },
+      {
+        "lemma": "multimidya",
+        "frequency": 249,
+        "band": "core"
+      },
+      {
+        "lemma": "kapuynin",
+        "frequency": 249,
+        "band": "core"
+      },
+      {
+        "lemma": "aswan",
+        "frequency": 246,
+        "band": "core"
+      },
+      {
+        "lemma": "uma",
+        "frequency": 245,
+        "band": "core"
+      },
+      {
+        "lemma": "distritu",
+        "frequency": 243,
+        "band": "core"
+      },
+      {
+        "lemma": "ancha",
+        "frequency": 238,
+        "band": "core"
+      },
+      {
+        "lemma": "jehová",
+        "frequency": 234,
+        "band": "core"
+      },
+      {
+        "lemma": "perú",
+        "frequency": 233,
+        "band": "core"
+      },
+      {
+        "lemma": "nisqan",
+        "frequency": 233,
+        "band": "core"
+      },
+      {
+        "lemma": "sapa",
+        "frequency": 229,
+        "band": "core"
+      }
+    ]
+  }
+}
