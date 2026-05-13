@@ -60,8 +60,8 @@ export default function Onboarding() {
       } catch (err) {
         console.error('failed to save onboarding response:', err);
       }
-
-      router.push('/');
+      // go to verbal/audio tutor selection page 
+      router.push('/tutor');
     }
   }
 
