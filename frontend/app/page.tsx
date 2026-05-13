@@ -215,6 +215,14 @@ export default function Home() {
       
       <p className="text-stone-500 mb-2">Your Ancient Greek AI Tutor</p>
 
+      {/* button to access the voice tutor modes (greek conversation, lesson, nahuatl) */}
+      <button
+        onClick={() => router.push('/tutor')}
+        className="mb-4 px-4 py-2 bg-stone-800 text-white text-sm rounded-lg hover:bg-stone-700"
+      >
+        🎙️ Voice Tutor
+      </button>
+
       {/* Show the learner's goal and level, plus a button to toggle the vocabulary sidebar */}
       {profile && (
         <div className="flex items-center gap-4 mb-4">

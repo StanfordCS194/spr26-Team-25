@@ -40,8 +40,8 @@ export default function Login() {
       if (error) {
         setMessage(error.message);
       } else {
-        // Redirect to onboarding if first time, or straight to chat
-        router.push('/');
+        // login successful so go directly to the voice tutor selection page 
+        router.push('/tutor');
       }
     }
 
