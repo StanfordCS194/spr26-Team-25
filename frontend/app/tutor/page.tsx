@@ -78,6 +78,20 @@ export default function TutorSelectPage() {
               Learn ancient Greek step by step — coming soon
             </p>
           </button>
+          {/* nahuatl mode: voice conversation in English with Citlali, teaching Nahuatl color words.
+          uses the same LiveKit + avatar setup as the greek conversation but with an English
+          voice and NAHUATL:/SPEECH: captions instead of GR:/EN: */}
+          <button
+            onClick={() => router.push('/tutor/nahuatl')}
+            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"
+          >
+            <p className="text-white text-lg font-medium group-hover:text-amber-300 transition-colors">
+              🌿 Nahuatl Colors
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Learn color words in Classical Nahuatl — speak with Citlali in English
+            </p>
+          </button>
         </div>
       </div>
     </main>

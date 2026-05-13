@@ -77,8 +77,8 @@ export default function LessonPage() {
   useEffect(() => {
     // /api/livekit-token-lesson dispatches eirini-lesson (LESSON_SYSTEM_PROMPT)
     // instead of eirini (SYSTEM_PROMPT), so the agent follows the alphabet curriculum
-    // fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson')
-    fetch('http://localhost:8000/api/livekit-token-lesson')
+    fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson')
+    // fetch('http://localhost:8000/api/livekit-token-lesson')
       .then(res => res.json())
       .then(data => setTokenData(data))
       .catch(() => setError('Could not connect to the tutor. Please try again.'));

@@ -51,8 +51,8 @@ export default function TutorPage() {
 
   // fetch a fresh token on load — each token creates a unique room for this session
   useEffect(() => {
-    // fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token')
-    fetch('http://localhost:8000/api/livekit-token')
+    fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token')
+    // fetch('http://localhost:8000/api/livekit-token')
       .then(res => res.json())
       .then(data => setTokenData(data))
       .catch(() => setError('Could not connect to the tutor. Please try again.'));

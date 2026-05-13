@@ -33,7 +33,7 @@ if _gcp_creds_json:
 
 class GoogleTTS(agents_tts.TTS):
 
-    def __init__(self, voice_name="el-GR-Wavenet-A", language_code="el-GR", sample_rate=24000):
+    def __init__(self, voice_name="el-GR-Wavenet-A", language_code="el-GR", sample_rate=24000, speaking_rate=0.82):
         super().__init__(
             capabilities=agents_tts.TTSCapabilities(streaming=False),
             sample_rate=sample_rate,
@@ -41,6 +41,7 @@ class GoogleTTS(agents_tts.TTS):
         )
         self._voice_name = voice_name
         self._language_code = language_code
+        self._speaking_rate = speaking_rate # stored so that _GoogleTTSStream can read it
         from google.cloud import texttospeech
         self._texttospeech = texttospeech
         self._client = texttospeech.TextToSpeechClient()
@@ -73,7 +74,7 @@ class _GoogleTTSStream(agents_tts.ChunkedStream):
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     sample_rate_hertz=tts._sample_rate,
-                    speaking_rate=0.82,  # slower than default 1.0 for clearer pronunciation
+                    speaking_rate=tts._speaking_rate,  # different speaking rate for different modes
                 ),
             ),
         )
@@ -159,6 +160,58 @@ class CaptionisingGoogleTTS(GoogleTTS):
             topic="captions",
         )
 
+# NahuatlTTS wraps GoogleTTS to intercept the LLM text before synthesis.
+# It works the same way as CaptionisingGoogleTTS but for English instead of Greek:
+#   1. parses the NAHUATL:/SPEECH: format from the LLM response
+#   2. speaks only the SPEECH part using an English-language voice
+#   3. publishes both the nahuatl word and english text to the LiveKit data channel
+#      so the frontend can display the nahuatl word prominently above the translation
+class NahuatlTTS(GoogleTTS):
+
+    def __init__(self, room: rtc.Room, **kwargs):
+        super().__init__(**kwargs)
+        self._room = room
+        # store the current nahuatl word sot hat overflow sentences can reuse it in the caption
+        self._pending_nahuatl_word = ""
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
+        logger.info(f"[Nahuatl] synthesize received: {repr(text)}")
+        nahuatl_word, speech = _parse_nahuatl_response(text)
+
+        # only publish a caption if this chunk explicitly started with NAHUATL:
+        # overflow sentences that arrive without the tag are spoken but don't
+        # create a caption, same pattern as CaptionisingGoogleTTS with GR:
+        if text.strip().startswith("NAHUATL:") and speech:
+            # new word, so save it so that the overflow chunk below can attach to it
+            self._pending_nahuatl_word = nahuatl_word
+            word_count = len(speech.split())
+            display_ms = max(4000, int(word_count * 450))
+            asyncio.ensure_future(self._send_caption(nahuatl_word, speech, display_ms))
+        elif self._pending_nahuatl_word and speech:
+            # livekit's sentence splitter broke the response into multiple chunks.
+            # this chunk has no NAHUATL: tag but belongs to the same word,
+            # so re-publish the caption with the same word and the full explanation
+            word_count = len(speech.split())
+            display_ms = max(4000, int(word_count * 450))
+            asyncio.ensure_future(self._send_caption(self._pending_nahuatl_word, speech, display_ms))
+
+        # speak only the english SPEECH part. The nahuatl word appears in captions only
+        # if speech is empty for some reason, send a silent space to avoid TTS errors
+        return _GoogleTTSStream(tts=self, input_text=speech if speech else " ", conn_options=conn_options)
+
+    async def _send_caption(self, nahuatl_word: str, speech: str, display_ms: int) -> None:
+        # publish a single complete message with both the nahuatl word and english text.
+        # the frontend reads nahuatl_word to display it prominently (like greek in the
+        # greek mode), and english for the explanation below it
+        caption_data = json.dumps({
+            "nahuatl_word": nahuatl_word,
+            "english": speech,
+            "display_ms": display_ms,
+        }).encode()
+        await self._room.local_participant.publish_data(
+            caption_data,
+            topic="captions",
+        )
 
 # Claude always responds in the format: GR: [greek text] EN: [english translation]
 # CaptionisingGoogleTTS strips the format before sending to TTS
@@ -212,6 +265,26 @@ def parse_response(text: str) -> tuple[str, str]:
     if not greek and not text.strip().startswith("EN:"):
         greek = text.strip()
     return greek, english
+
+def _parse_nahuatl_response(text: str) -> tuple[str, str]:
+    # splits the LLM response into the nahuatl word and the english speech.
+    # the LLM always responds in this format:
+    #   NAHUATL: chichiltic
+    #   SPEECH: The Nahuatl word for red is "chichiltic"...
+    # if the format is missing, falls back to treating the whole text as speech
+    # so the agent still says something instead of going silent
+    nahuatl_word = ""
+    speech = ""
+    n_match = re.search(r'NAHUATL:\s*(.+?)(?:\nSPEECH:|$)', text, re.DOTALL)
+    s_match = re.search(r'SPEECH:\s*(.+?)$', text, re.DOTALL)
+    if n_match:
+        nahuatl_word = n_match.group(1).strip()
+    if s_match:
+        speech = s_match.group(1).strip()
+    # only fall back to raw text if it doesn't look like a standalone NAHUATL: chunk
+    if not speech and not text.strip().startswith("NAHUATL:"):
+        speech = text.strip()
+    return nahuatl_word, speech
 
 LESSON_SYSTEM_PROMPT = """
 You are Ειρήνη (Irini), an expert Ancient Greek teacher conducting a structured lesson.
@@ -271,23 +344,90 @@ IMMERSION RULES:
   ✅ it sounds like "the", like the word thálassa (sea)
 """
 
+# Citlali is the Nahuatl tutor. Unlike Eirini who speaks Greek, Citlali speaks
+# English and teaches Classical Nahuatl color vocabulary through conversation.
+# Every response uses NAHUATL:/SPEECH: format so NahuatlTTS can parse and display
+# the nahuatl word as a caption while speaking the english explanation aloud.
+NAHUATL_SYSTEM_PROMPT = """
+You are Citlali, a warm and knowledgeable tutor of Classical Nahuatl — the language
+of the ancient Aztec civilization. You teach Nahuatl color vocabulary to English speakers
+through natural, encouraging conversation.
+
+VOCABULARY — teach these words one at a time, starting with the most basic colors:
+chichiltic: the color red (/tʃitʃiltik/)
+coztic: the color yellow (/kostik/)
+yayahuic: the color black (/jajawik/)
+chipahuac: the color white (/tʃipawak/)
+xoxoctic: dark green, like a bruise (/ʃoʃoktik/)
+xoxohuic: green of a plant or tree (/ʃoʃowik/)
+azultic: the color blue (/asultik/)
+camohtic: the color purple (/kamohtik/)
+cafentic: the color brown (/kafentik/)
+tenextic: the color gray (/teneʃtik/)
+achichiltic: light red (/atʃitʃiltik/)
+achilcoztic: light orange (/atʃilkostik/)
+cuahuencho: hot pink (/kwawentʃo/)
+tzictic: sky blue (/tsiktik/)
+pilatzicticatzin: sky blue (/pilatsiktikatsin/)
+chocoxtic: blond (/tʃokoʃtik/)
+pinixtic: faded, discolored (/piniʃtik/)
+apahpatlatic: watery green (/apahpatɬatik/)
+atenextic: light gray (/ateneʃtik/)
+axihuitic: color of tender green shoots (/aʃiwitik/)
+axoxoctic: green like a new sprout (/aʃoʃoktik/)
+azozoquitic: color of dirty water (/asosokitik/)
+cahcamohtic: patches of purple (/kahkamohtik/)
+chihchipahuac: white, for animals or things (/tʃihtʃipawak/)
+cuicuiltic: striped or spotted with many colors (/kwikwiltik/)
+pilyayactzin: very dark, almost black (/piljajaktsin/)
+pintohtic: spotted with different colors (/pintohtik/)
+tecolotic: yellowish, like aged cloth (/tekolotik/)
+tlapalli: something with two or three colors (/tɬapal:i/)
+yayactic: brownish black (/jajaktik/)
+queniuhcatic: what color is it? (/keniuhkatik/)
+
+RESPONSE FORMAT — every single response MUST use this exact format, no exceptions:
+NAHUATL: [the nahuatl word you are teaching]
+SPEECH: [one sentence of natural English]
+
+Example:
+NAHUATL: chichiltic
+SPEECH: The Nahuatl word for red is "chichiltic" — the ancient Aztecs used it to describe the deep red of blood, ripe tomatoes, and precious dyes.
+
+RULES:
+- ALWAYS use NAHUATL:/SPEECH: format — every response, no exceptions
+- ONE sentence only in SPEECH — the system breaks with more than one
+- Start with the basic colors first: red, yellow, black, white, green, blue
+- Be conversational: after introducing a word, ask the student to repeat it or quiz them
+- Warm reactions to student answers: "Excellent!", "Perfect!", "Almost — try once more!"
+- Never use markdown or bullet points inside SPEECH
+- If the student asks about a specific color, teach that word next
+"""
+
 @server.rtc_session(agent_name="eirini")
 async def run_eirini(ctx: JobContext):
     # metadata comes from dispatch request. "lesson" or "" for a free conversation.
     # this allows us to have a single handler that serves for both modes. 
     is_lesson = ctx.job.metadata == "lesson"
-    prompt = LESSON_SYSTEM_PROMPT if is_lesson else SYSTEM_PROMPT
-    logger.info(f"Session starting — mode: {'lesson' if is_lesson else 'conversation'}")
+    is_nahuatl = ctx.job.metadata == "nahuatl"
+    prompt = NAHUATL_SYSTEM_PROMPT if is_nahuatl else (LESSON_SYSTEM_PROMPT if is_lesson else SYSTEM_PROMPT)
+    logger.info(f"Session starting — mode: {'nahuatl' if is_nahuatl else 'lesson' if is_lesson else 'conversation'}")
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3", language="multi"),
         llm=anthropic.LLM(model="claude-haiku-4-5-20251001"),
         # CaptionisingGoogleTTS needs ctx.room to publish captions,
         # so it is created here inside run_eirini where ctx is available
-        tts=CaptionisingGoogleTTS(
+        tts = NahuatlTTS(
+            room = ctx.room,
+            voice_name="en-US-Wavenet-F",
+            language_code="en-US",
+            speaking_rate=0.95,  # faster than greek (0.82) since english is easier to follow
+        ) if is_nahuatl else CaptionisingGoogleTTS(
             room=ctx.room,
             voice_name="el-GR-Wavenet-A",
-            language_code="el-GR",
+            language_code="el-GR",  
+            speaking_rate = 0.82,
         ),
     )
 
@@ -311,7 +451,6 @@ async def run_eirini(ctx: JobContext):
     # LLM pipeline so captionss work exactly like conversation mode. 
     if is_lesson:
         _reply_lock = asyncio.Lock()
-
 
         # listen for "student_ready" messages from the frontend.
         # when the student presses Space or the Continue button, the frontend
@@ -339,8 +478,12 @@ async def run_eirini(ctx: JobContext):
         await session.generate_reply(
             instructions="Begin the lesson now with your opening welcome."
         )
+    # trigger an opening greeting so the student knows they can ask about nahuatl colors
+    if is_nahuatl:
+        await session.generate_reply(
+            instructions="Greet the student warmly in one sentence and tell them they can ask about any color in Nahuatl."
+        )
         
-
 if __name__ == "__main__":
     agents.cli.run_app(
         agents.WorkerOptions(
