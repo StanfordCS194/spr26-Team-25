@@ -41,8 +41,8 @@ const BACKGROUNDS = [
 export default function TutorPage() {
   const [tokenData, setTokenData] = useState<LiveKitToken | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // controls whether captions disappear automatically or stay until the next one
-  const [keepCaptions, setKeepCaptions] = useState(false);
+  // controls whether captions disappear automatically or stay until the next one. by default set to stay till next
+  const [keepCaptions, setKeepCaptions] = useState(true);
   // pick a random background once when the component mounts
   const [background] = useState(
     () => BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)]
