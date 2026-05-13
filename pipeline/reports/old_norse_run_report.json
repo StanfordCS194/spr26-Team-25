@@ -1,0 +1,365 @@
+{
+  "generated": "2026-05-13",
+  "dialect": "west-norse",
+  "sources": {
+    "parallel": "cltk_non_zoega_dictionary",
+    "monolingual": "old_norse_texts_heimskringla"
+  },
+  "parallel_cleaning": {
+    "total": 5000,
+    "kept": 4197,
+    "dropped": {
+      "es_too_short": 803
+    }
+  },
+  "monolingual_cleaning": {
+    "total": 7230,
+    "kept": 6257,
+    "dropped": {
+      "too_long": 945,
+      "too_short": 28
+    }
+  },
+  "vocabulary": {
+    "total_lemmas": 9605,
+    "exported_lemmas": 3869,
+    "total_surface_forms": 15054,
+    "frequency_band_distribution": {
+      "core": 100,
+      "high": 400,
+      "medium": 1500,
+      "low": 3000,
+      "rare": 4605
+    },
+    "proficiency_level_distribution": {
+      "A1": 90,
+      "A2": 386,
+      "B1": 1395,
+      "B2": 7734
+    },
+    "pos_distribution": {
+      "other": 2792,
+      "noun": 5238,
+      "verb": 1535,
+      "adj": 40
+    },
+    "semantic_field_distribution": {
+      "time": 151,
+      "law": 144,
+      "body": 140,
+      "nature": 140,
+      "seafaring": 128,
+      "crafts": 124,
+      "warfare": 121,
+      "wealth": 91,
+      "food": 88,
+      "poetry": 80,
+      "emotion": 79,
+      "kinship": 63,
+      "religion": 34,
+      "mythology": 21
+    },
+    "top_50_lemmas": [
+      {
+        "lemma": "ok",
+        "runic": "ᛟᚲ",
+        "frequency": 3526,
+        "band": "core"
+      },
+      {
+        "lemma": "er",
+        "runic": "ᛖᚱ",
+        "frequency": 3412,
+        "band": "core"
+      },
+      {
+        "lemma": "at",
+        "runic": "ᚨᛏ",
+        "frequency": 2574,
+        "band": "core"
+      },
+      {
+        "lemma": "ek",
+        "runic": "ᛖᚲ",
+        "frequency": 1740,
+        "band": "core"
+      },
+      {
+        "lemma": "kvað",
+        "runic": "ᚲᚹᚨᚦ",
+        "frequency": 1593,
+        "band": "core"
+      },
+      {
+        "lemma": "hann",
+        "runic": "ᚺᚨᚾᚾ",
+        "frequency": 1481,
+        "band": "core"
+      },
+      {
+        "lemma": "en",
+        "runic": "ᛖᚾ",
+        "frequency": 1335,
+        "band": "core"
+      },
+      {
+        "lemma": "þú",
+        "runic": "ᚦᚢ",
+        "frequency": 1271,
+        "band": "core"
+      },
+      {
+        "lemma": "þá",
+        "runic": "ᚦᚨ",
+        "frequency": 1190,
+        "band": "core"
+      },
+      {
+        "lemma": "þat",
+        "runic": "ᚦᚨᛏ",
+        "frequency": 1077,
+        "band": "core"
+      },
+      {
+        "lemma": "of",
+        "runic": "ᛟᚠ",
+        "frequency": 975,
+        "band": "core"
+      },
+      {
+        "lemma": "var",
+        "runic": "ᚹᚨᚱ",
+        "frequency": 929,
+        "band": "core"
+      },
+      {
+        "lemma": "svá",
+        "runic": "ᛊᚹᚨ",
+        "frequency": 750,
+        "band": "core"
+      },
+      {
+        "lemma": "þei",
+        "runic": "ᚦᛖᛁ",
+        "frequency": 671,
+        "band": "core"
+      },
+      {
+        "lemma": "til",
+        "runic": "ᛏᛁᛚ",
+        "frequency": 670,
+        "band": "core"
+      },
+      {
+        "lemma": "fyr",
+        "runic": "ᚠᛃᚱ",
+        "frequency": 639,
+        "band": "core"
+      },
+      {
+        "lemma": "hei",
+        "runic": "ᚺᛖᛁ",
+        "frequency": 618,
+        "band": "core"
+      },
+      {
+        "lemma": "með",
+        "runic": "ᛗᛖᚦ",
+        "frequency": 600,
+        "band": "core"
+      },
+      {
+        "lemma": "all",
+        "runic": "ᚨᛚᛚ",
+        "frequency": 599,
+        "band": "core"
+      },
+      {
+        "lemma": "við",
+        "runic": "ᚹᛁᚦ",
+        "frequency": 598,
+        "band": "core"
+      },
+      {
+        "lemma": "inn",
+        "runic": "ᛁᚾᚾ",
+        "frequency": 566,
+        "band": "core"
+      },
+      {
+        "lemma": "þar",
+        "runic": "ᚦᚨᚱ",
+        "frequency": 552,
+        "band": "core"
+      },
+      {
+        "lemma": "af",
+        "runic": "ᚨᚠ",
+        "frequency": 545,
+        "band": "core"
+      },
+      {
+        "lemma": "mun",
+        "runic": "ᛗᚢᚾ",
+        "frequency": 543,
+        "band": "core"
+      },
+      {
+        "lemma": "þér",
+        "runic": "ᚦᛖᚱ",
+        "frequency": 534,
+        "band": "core"
+      },
+      {
+        "lemma": "hon",
+        "runic": "ᚺᛟᚾ",
+        "frequency": 504,
+        "band": "core"
+      },
+      {
+        "lemma": "ef",
+        "runic": "ᛖᚠ",
+        "frequency": 501,
+        "band": "core"
+      },
+      {
+        "lemma": "sá",
+        "runic": "ᛊᚨ",
+        "frequency": 489,
+        "band": "core"
+      },
+      {
+        "lemma": "sem",
+        "runic": "ᛊᛖᛗ",
+        "frequency": 476,
+        "band": "core"
+      },
+      {
+        "lemma": "vit",
+        "runic": "ᚹᛁᛏ",
+        "frequency": 466,
+        "band": "core"
+      },
+      {
+        "lemma": "skal",
+        "runic": "ᛊᚲᚨᛚ",
+        "frequency": 430,
+        "band": "core"
+      },
+      {
+        "lemma": "kom",
+        "runic": "ᚲᛟᛗ",
+        "frequency": 414,
+        "band": "core"
+      },
+      {
+        "lemma": "hva",
+        "runic": "ᚺᚹᚨ",
+        "frequency": 403,
+        "band": "core"
+      },
+      {
+        "lemma": "ver",
+        "runic": "ᚹᛖᚱ",
+        "frequency": 393,
+        "band": "core"
+      },
+      {
+        "lemma": "mér",
+        "runic": "ᛗᛖᚱ",
+        "frequency": 391,
+        "band": "core"
+      },
+      {
+        "lemma": "eða",
+        "runic": "ᛖᚦᚨ",
+        "frequency": 388,
+        "band": "core"
+      },
+      {
+        "lemma": "þór",
+        "runic": "ᚦᛟᚱ",
+        "frequency": 378,
+        "band": "core"
+      },
+      {
+        "lemma": "nú",
+        "runic": "ᚾᚢ",
+        "frequency": 342,
+        "band": "core"
+      },
+      {
+        "lemma": "hve",
+        "runic": "ᚺᚹᛖ",
+        "frequency": 342,
+        "band": "core"
+      },
+      {
+        "lemma": "ór",
+        "runic": "ᛟᚱ",
+        "frequency": 339,
+        "band": "core"
+      },
+      {
+        "lemma": "heim",
+        "runic": "ᚺᛖᛁᛗ",
+        "frequency": 328,
+        "band": "core"
+      },
+      {
+        "lemma": "því",
+        "runic": "ᚦᚹᛁ",
+        "frequency": 327,
+        "band": "core"
+      },
+      {
+        "lemma": "um",
+        "runic": "ᚢᛗ",
+        "frequency": 323,
+        "band": "core"
+      },
+      {
+        "lemma": "né",
+        "runic": "ᚾᛖ",
+        "frequency": 317,
+        "band": "core"
+      },
+      {
+        "lemma": "hef",
+        "runic": "ᚺᛖᚠ",
+        "frequency": 314,
+        "band": "core"
+      },
+      {
+        "lemma": "son",
+        "runic": "ᛊᛟᚾ",
+        "frequency": 311,
+        "band": "core"
+      },
+      {
+        "lemma": "kall",
+        "runic": "ᚲᚨᛚᛚ",
+        "frequency": 282,
+        "band": "core"
+      },
+      {
+        "lemma": "sér",
+        "runic": "ᛊᛖᚱ",
+        "frequency": 281,
+        "band": "core"
+      },
+      {
+        "lemma": "eig",
+        "runic": "ᛖᛁᚷ",
+        "frequency": 281,
+        "band": "core"
+      },
+      {
+        "lemma": "þes",
+        "runic": "ᚦᛖᛊ",
+        "frequency": 276,
+        "band": "core"
+      }
+    ]
+  }
+}

@@ -5,9 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 
 // These environment variables are loaded from .env.local
 // The NEXT_PUBLIC_ prefix means Next.js exposes them to the browser (not just the server)
-// Without NEXT_PUBLIC_, the variable would be undefined on the client side
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Without NEXT_PUBLIC_, the variable would be undefined on the client side.
+// Fallback to placeholder values during `next build` static analysis — at runtime
+// the real values from .env.local are always present.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder';
 
 // createClient initializes the connection to our Supabase project
 // supabaseUrl: the unique URL of our Supabase database

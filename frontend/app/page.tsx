@@ -13,18 +13,34 @@ interface Message {
   content: string;
 }
 
+// Elder Futhark transliterator — mirrors backend/_on_to_runes so the vocab
+// sidebar always shows rune glyphs even when the DB column is missing.
+const ELDER_FUTHARK: Record<string, string> = {
+  a:'ᚨ',á:'ᚨ',æ:'ᚨ',e:'ᛖ',é:'ᛖ',i:'ᛁ',í:'ᛁ',
+  o:'ᛟ',ó:'ᛟ',ø:'ᛟ',ǿ:'ᛟ',ǫ:'ᛟ',u:'ᚢ',ú:'ᚢ',
+  y:'ᛃ',ý:'ᛃ',b:'ᛒ',d:'ᛞ',f:'ᚠ',g:'ᚷ',h:'ᚺ',
+  j:'ᛃ',k:'ᚲ',l:'ᛚ',m:'ᛗ',n:'ᚾ',p:'ᛈ',r:'ᚱ',
+  s:'ᛊ',t:'ᛏ',v:'ᚹ',w:'ᚹ',z:'ᛉ',þ:'ᚦ',ð:'ᚦ',
+};
+function toRunes(word: string): string {
+  return word.toLowerCase().split('').map(c => ELDER_FUTHARK[c] ?? c).join('');
+}
+
 // Define the shape of the learner's profile collected during onboarding
 interface UserProfile {
-  experience: string; // Prior knowledge of Ancient Greek (e.g. "No, complete beginner")
-  goal: string;       // Why they want to learn (e.g. "Read the New Testament")
-  time: string;       // Weekly time commitment (e.g. "30–60 minutes")
+  language: string;   // "Ancient Greek" | "Old Norse"
+  experience: string;
+  goal: string;
+  time: string;
 }
 
 // Define the shape of a vocabulary word saved in Supabase
 interface VocabWord {
-  greek: string;
+  greek: string;           // word in the target language (reused column name)
   transliteration: string;
   meaning: string;
+  runic?: string;          // Elder Futhark form (Old Norse only)
+  language?: string;       // "greek" | "old_norse"
 }
 
 export default function Home() {
@@ -71,7 +87,9 @@ export default function Home() {
       // User is logged in — now check if they've completed onboarding
       const saved = localStorage.getItem('chronos_profile');
       if (saved) {
-        setProfile(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Backwards compat: profiles saved before language was added default to Ancient Greek
+        setProfile({ language: 'Ancient Greek', ...parsed });
       } else {
         router.push('/onboarding');
       }
@@ -88,8 +106,6 @@ export default function Home() {
   }, [sessionId, messages]); // Re-fetch after each new message
 
   // Maps the learner's onboarding experience answer to a simple level string
-  // This level is sent to the backend so the tutor knows whether to start
-  // with the alphabet and basic vocabulary, or jump into grammar and complex texts
   function getLevel(): string {
     if (!profile) return 'beginner';
     if (profile.experience === 'No, complete beginner') return 'beginner';
@@ -98,13 +114,19 @@ export default function Home() {
     return 'advanced';
   }
 
+  // Maps the onboarding language choice to the API language key
+  function getApiLanguage(): string {
+    return profile?.language === 'Old Norse' ? 'old_norse' : 'greek';
+  }
+
+  // Human-readable language name for display
+  const languageName = profile?.language === 'Old Norse' ? 'Old Norse' : 'Ancient Greek';
+
   // Handles sending a message when the learner presses Send or hits Enter
   async function sendMessage() {
     if (!input.trim()) return;
 
     // Read the user's ID directly from the active session at the moment of sending
-    // This is more reliable than using the userId state variable, which may still
-    // be null if the user sends a message before the useEffect has finished loading
     const { data: { session } } = await supabase.auth.getSession();
     const currentUserId = session?.user?.id || null;
 
@@ -119,12 +141,13 @@ export default function Home() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        language: getApiLanguage(),
         message: input,
         level: getLevel(),
         goal: profile?.goal || 'General curiosity & history',
         time_commitment: profile?.time || '30-60 minutes',
         session_id: sessionId,
-        user_id: currentUserId, // Attach the user's ID so the backend can save it to Supabase
+        user_id: currentUserId,
         history: messages,
       }),
     });
@@ -144,7 +167,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
-      <p className="text-stone-500 mb-2">Your Ancient Greek AI Tutor</p>
+      <p className="text-stone-500 mb-2">Your {languageName} AI Tutor</p>
 
       {/* Show the learner's goal and level, plus a button to toggle the vocabulary sidebar */}
       {profile && (
@@ -169,7 +192,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.length === 0 && (
               <p className="text-center text-stone-400 mt-20">
-                Start a conversation to begin learning Ancient Greek
+                Start a conversation to begin learning {languageName}
               </p>
             )}
             {messages.map((msg, i) => (
@@ -222,6 +245,11 @@ export default function Home() {
                 {vocab.map((word, i) => (
                   <div key={i} className="border-b border-stone-100 pb-2">
                     <p className="text-lg text-stone-800">{word.greek}</p>
+                    {(word.language === 'old_norse' || word.runic) && (
+                      <p className="text-xl tracking-widest text-amber-700">
+                        {word.runic || toRunes(word.greek)}
+                      </p>
+                    )}
                     <p className="text-xs text-stone-400">{word.transliteration}</p>
                     <p className="text-sm text-stone-600">{word.meaning}</p>
                   </div>
