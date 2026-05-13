@@ -486,7 +486,7 @@ async def run_eirini(ctx: JobContext):
     # trigger an opening greeting for free conversation mode so the student doesn't have to speak first
     if not is_lesson and not is_nahuatl:
         await session.generate_reply(
-            instructions="Greet the student warmly in one sentence, then ask what they would like to learn today — vocabulary, grammar, philosophy, or history."
+            instructions="Greet the student and ask what they want to learn today. ONE sentence only — no more than one."
         )
         
 if __name__ == "__main__":
