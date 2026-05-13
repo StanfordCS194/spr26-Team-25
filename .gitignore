@@ -10,3 +10,8 @@ node_modules/
 
 # Mac
 .DS_Store
+
+# CMake build artifacts
+preproc/build/
+preproc/parser
+preproc/output.json

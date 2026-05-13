@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// The three diagnostic questions shown to the user during onboarding
+// the three diagnostic questions shown to the user during onboarding
 const questions = [
   {
     id: 'experience',
@@ -26,29 +26,46 @@ export default function Onboarding() {
   // useRouter allows us to navigate to other pages programmatically
   const router = useRouter();
 
-  // Track which question we're on (0, 1, or 2)
+  // track which question we're on (0, 1, or 2)
   const [step, setStep] = useState(0);
 
-  // Store the user's answers as a key-value object, e.g. { experience: "beginner", goal: "philosophy" }
+  // store the user's answers as a key-value object, e.g. { experience: "beginner", goal: "philosophy" }
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  // Called when the user clicks an answer option
-  function selectOption(option: string) {
-    // Add the new answer to the existing answers without losing previous ones
+  // called when the user clicks an answer option
+  async function selectOption(option: string) {
+    // add the new answer to the existing answers without losing previous ones
     const newAnswers = { ...answers, [questions[step].id]: option };
     setAnswers(newAnswers);
 
     if (step < questions.length - 1) {
-      // More questions remain — advance to the next one
+      // more questions remain — advance to the next one
       setStep(step + 1);
     } else {
-      // All questions answered — save profile to browser storage and go to the tutor
+      // all questions answered — save profile to localStorage for the tutor session
       localStorage.setItem('chronos_profile', JSON.stringify(newAnswers));
-      router.push('/');
+
+      // also send the answers to Railway so we can track them in Supabase.
+      // wrapped in try/catch so that if this fails, the user still gets to the app
+      try {
+        await fetch('https://spr26-team-25-production.up.railway.app/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            experience: newAnswers.experience,
+            goal: newAnswers.goal,
+            time_commitment: newAnswers.time,
+          }),
+        });
+      } catch (err) {
+        console.error('failed to save onboarding response:', err);
+      }
+      // go to verbal/audio tutor selection page 
+      router.push('/tutor');
     }
   }
 
-  // The current question being displayed
+  // the current question being displayed
   const current = questions[step];
 
   return (
@@ -58,17 +75,17 @@ export default function Onboarding() {
 
       <div className="w-full max-w-lg bg-white rounded-xl shadow-md p-8">
 
-        {/* Progress bar — one segment per question, filled up to the current step */}
+        {/* progress bar — one segment per question, filled up to the current step */}
         <div className="flex gap-2 mb-8">
           {questions.map((_, i) => (
             <div key={i} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-stone-800' : 'bg-stone-200'}`} />
           ))}
         </div>
 
-        {/* The current question text */}
+        {/* the current question text */}
         <h2 className="text-xl font-semibold text-stone-800 mb-6">{current.question}</h2>
 
-        {/* Answer options — each is a clickable button */}
+        {/* answer options — each is a clickable button */}
         <div className="space-y-3">
           {current.options.map((option) => (
             <button
@@ -82,7 +99,7 @@ export default function Onboarding() {
         </div>
       </div>
 
-      {/* Shows the user which question they're on */}
+      {/* shows the user which question they're on */}
       <p className="text-stone-400 text-sm mt-6">Question {step + 1} of {questions.length}</p>
     </main>
   );

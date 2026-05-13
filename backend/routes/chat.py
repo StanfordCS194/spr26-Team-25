@@ -6,8 +6,25 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
+from google.cloud import texttospeech
+from fastapi.responses import StreamingResponse
+import io
+# for talking to tutor
+import re
+# para regex
+import json
+import tempfile
 
 load_dotenv()
+
+# Load Google Cloud credentials from environment variable (Railway deployment)
+# Instead of using a JSON file (which would require committing secrets to git),
+# we store the credentials JSON as an env var and write it to a temp file at the startup
+creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+if creds_json:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(creds_json)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = f.name
 
 router = APIRouter()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -149,3 +166,56 @@ async def get_vocabulary(session_id: str):
         .execute()
     
     return {"vocabulary": result.data}
+
+@router.post("/speak")
+async def speak(body: dict):
+    """
+    Receives text from the frontend and returns an audio stream using Google Cloud TTS
+    Uses a Greek female WaveNet voice that handles both English and Greek naturally.
+    """
+    text = body.get("text", "")
+    # Remove markdown formatting so the TTS doesn't read symbols like asterisks out loud
+    text = re.sub(r'\*+', '', text)        # Remove asterisks
+    text = re.sub(r'#{1,6}\s*', '', text)  # Remove headers (##, ###, etc.)
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # Remove links, keep text
+
+
+    # Initialize the Google Cloud TTS client — credentials are loaded automatically
+    # from the GOOGLE_APPLICATION_CREDENTIALS environment variable
+    tts_client = texttospeech.TextToSpeechClient()
+
+    # Wrap the text in a SynthesisInput object
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    # Use a Greek female WaveNet voice. Thick Greek accent. 
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="el-GR",
+        name="el-GR-Wavenet-A",
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    )
+
+    # American voice. Don't really like it because it does not pronounce
+    # Greek words right. 
+    # voice = texttospeech.VoiceSelectionParams(
+    #     language_code="en-US",
+    #     name="en-US-Neural2-F",
+    #     ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    # )
+
+    # Request MP3 audio output
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    # Generate the audio
+    response = tts_client.synthesize_speech(
+        input=synthesis_input,
+        voice=voice,
+        audio_config=audio_config
+    )
+
+    # Return the audio as a streaming MP3 response the browser can play directly
+    return StreamingResponse(
+        io.BytesIO(response.audio_content),
+        media_type="audio/mpeg"
+    )

@@ -52,6 +52,9 @@ export default function Home() {
   // Controls whether the vocabulary sidebar is visible
   const [showVocab, setShowVocab] = useState(false);
 
+  // Tracks whether the microphone is currently listening for voice input
+  const [isListening, setIsListening] = useState(false);
+
   // router gives us access to Next.js navigation — we use it to redirect users who haven't completed onboarding
   const router = useRouter();
 
@@ -98,6 +101,62 @@ export default function Home() {
     return 'advanced';
   }
 
+  // Activates the browser's Web Speech API to transcribe the user's voice into text.
+  // The transcribed text is placed into the input field so the user can review it before sending. 
+  // This only works in Chrome, and other browsers do not fully support the Web Speech API
+  function startListening() {
+    // SpeechRecognition is a built-in browser API — no external library needed
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice input is only supported in Chrome.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    // Set the language to English — change to 'el-GR' for Greek input
+    recognition.lang = 'en-US';
+    // Return only the final result, not partial words as they're being spoken
+    recognition.interimResults = false;
+
+    setIsListening(true);
+
+    // When the browser finishes transcribing, put the result in the input field
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setIsListening(false);
+    };
+
+    // If something goes wrong (e.g. no microphone access), stop listening
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+  }
+
+  // Send Chronos' response to the backend, which uses Google Cloud Text-to-Speech to generate audio.
+  // The browser then plays the returned MP3 directly.
+  async function speak(text: string) {
+    try {
+      // Send the text to the backend, which calls Google Cloud TTS and returns an MP3 audio file
+      const response = await fetch('https://spr26-team-25-production.up.railway.app/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      // Convert the response into a blob (binary audio data) and create a playable URL
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Play the audio automatically when it's ready
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (error) {
+      console.error('TTS error:', error);
+    }
+  }
+
   // Handles sending a message when the learner presses Send or hits Enter
   async function sendMessage() {
     if (!input.trim()) return;
@@ -136,15 +195,33 @@ export default function Home() {
       setSessionId(data.session_id);
     }
 
-    // Add Chronos's response to the conversation and re-enable the input
+    // Add Chronos's response to the conversation, read it aloud, and re-enable the input
     setMessages([...newMessages, { role: 'assistant', content: data.response }]);
+    speak(data.response);
     setLoading(false);
   }
 
   return (
     <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
+      {/* header — tutor avatar + title side by side */}
+      <div className="flex items-center gap-3 mb-2">
+        <img
+          src="/greek-tutor-female.jpg"
+          alt="Chronos tutor"
+          className="w-12 h-12 rounded-full object-cover shadow-md"
+        />
+        <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
+      </div>
+      
       <p className="text-stone-500 mb-2">Your Ancient Greek AI Tutor</p>
+
+      {/* button to access the voice tutor modes (greek conversation, lesson, nahuatl) */}
+      <button
+        onClick={() => router.push('/tutor')}
+        className="mb-4 px-4 py-2 bg-stone-800 text-white text-sm rounded-lg hover:bg-stone-700"
+      >
+        🎙️ Voice Tutor
+      </button>
 
       {/* Show the learner's goal and level, plus a button to toggle the vocabulary sidebar */}
       {profile && (
@@ -174,6 +251,16 @@ export default function Home() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+
+                {/* show tutor avatar to the left of every assistant message */}
+                {msg.role === 'assistant' && (
+                  <img
+                    src="/greek-tutor-female.jpg"
+                    alt="Chronos tutor"
+                    className="w-8 h-8 rounded-full object-cover mr-2 mt-1 flex-shrink-0"
+                  />
+                )}
+
                 <div className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
                   msg.role === 'user'
                     ? 'bg-stone-800 text-white'
@@ -183,8 +270,15 @@ export default function Home() {
                 </div>
               </div>
             ))}
+
+            {/* show avatar next to the loading indicator too, for consistency */}
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex items-start justify-start">
+                <img
+                  src="/greek-tutor-female.jpg"
+                  alt="Chronos tutor"
+                  className="w-8 h-8 rounded-full object-cover mr-2 mt-1 flex-shrink-0"
+                />
                 <div className="bg-stone-100 text-stone-400 rounded-lg px-4 py-2 text-sm">
                   Chronos is thinking...
                 </div>
@@ -201,6 +295,19 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             />
+            {/* Microphone button - uses the browser's built-in Web Speech API to convert voice to text. While listening, the button turns red and pulses so that the user knows it is active. The button is disabled when a message is loading or already listening. */}
+            <button
+              onClick={startListening}
+              disabled={loading || isListening}
+              className={`px-4 py-2 rounded-lg text-sm ${
+                isListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-stone-200 text-stone-700 hover:bg-stone-300'
+              }`}
+            >
+              {isListening ? '🎙️ Listening...' : '🎙️'}
+            </button>
+            {/* Send button, which is disabled while waiting for a response to prevent duplicate messages */}
             <button
               onClick={sendMessage}
               disabled={loading}
