@@ -183,18 +183,23 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
         )}
       </div>
 
-      {/* captions: Greek on top, English below.
-          semi-transparent background makes them readable over any background image */}
-      <div className="w-full min-h-[80px] flex flex-col items-center justify-center text-center px-4 py-3 rounded-xl bg-black/40 backdrop-blur-sm">
+      {/* caption area — same layout as lesson page for visual consistency.
+          greek on top (what Eirini said), english below in a blue pill (translation). */}
+      <div className="w-full min-h-[90px] flex flex-col items-center justify-center text-center px-6 py-4 rounded-2xl bg-black/50 backdrop-blur-sm border border-white/10">
         {caption ? (
           <>
-            <p className="text-white text-xl font-medium">{caption.greek}</p>
+            {/* greek text — what Eirini is saying out loud */}
+            <p className="text-white text-xl font-medium leading-snug">{caption.greek}</p>
+            {/* english translation — blue pill so it's visually distinct from the greek */}
             {caption.english && (
-              <p className="text-white/70 text-base mt-1">{caption.english}</p>
+              <p className="text-white text-xl mt-2 bg-blue-600/50 rounded-full px-3 py-1">
+                {caption.english}
+              </p>
             )}
           </>
         ) : (
-          <p className="text-white/40 text-sm">Speak to start the lesson</p>
+          // shown while the agent is loading or hasn't spoken yet
+          <p className="text-white/30 text-sm">Speak to start the lesson</p>
         )}
       </div>
     </div>

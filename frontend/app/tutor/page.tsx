@@ -65,17 +65,16 @@ export default function TutorSelectPage() {
             </p>
           </button>
 
-          {/* lesson mode, coming soon */}
+          {/* structured lesson mode — teaches the 24 letters of the greek alphabet */}
           <button
             onClick={() => router.push('/tutor/lesson')}
-            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group opacity-60"
-            disabled
+            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"
           >
             <p className="text-white text-lg font-medium group-hover:text-amber-300 transition-colors">
               📖 Structured Lesson
             </p>
             <p className="text-white/50 text-sm mt-1">
-              Learn ancient Greek step by step — coming soon
+              Learn the Ancient Greek alphabet step by step with Ειρήνη
             </p>
           </button>
           {/* nahuatl mode: voice conversation in English with Citlali, teaching Nahuatl color words.
