@@ -146,7 +146,7 @@ function NahuatlAvatar() {
       <div className="w-full aspect-video bg-black/30 rounded-2xl overflow-hidden backdrop-blur-sm">
         {avatarTracks.length > 0 ? (
           // render Simli's video stream once it arrives
-          <VideoTrack trackRef={avatarTracks[0]} className="w-full h-full object-cover" />
+          <VideoTrack trackRef={avatarTracks[0] as any} className="w-full h-full object-cover" />
         ) : (
           // placeholder while the avatar is loading
           <div className="w-full h-full flex flex-col items-center justify-center gap-1">

@@ -172,7 +172,7 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
         {avatarTracks.length > 0 ? (
           // VideoTrack renders the video stream from Simli into this div
           <VideoTrack
-            trackRef={avatarTracks[0]}
+            trackRef={avatarTracks[0] as any}
             className="w-full h-full object-cover"
           />
         ) : (
