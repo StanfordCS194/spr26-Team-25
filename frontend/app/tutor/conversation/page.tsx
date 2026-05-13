@@ -202,6 +202,11 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
           <p className="text-white/30 text-sm">Speak to start the lesson</p>
         )}
       </div>
+
+      {/* mic hint — reminds the student to speak after each response to keep the conversation going */}
+      <p className="text-white/30 text-xs mt-2">
+        🎙 Speak or ask a question to continue
+      </p>
     </div>
   );
 }
