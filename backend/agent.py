@@ -13,8 +13,15 @@ from livekit.agents import AgentSession, AgentServer, APIConnectOptions, JobCont
 from livekit.agents import tts as agents_tts
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import anthropic, deepgram, simli
+from supabase import create_client
 
 load_dotenv()
+
+# initialize supabase client for saving conversation logs.
+# falls back to None gracefully if credentials aren't set so the agent still runs
+_supabase_url = os.getenv("SUPABASE_URL")
+_supabase_key = os.getenv("SUPABASE_KEY")
+supabase_client = create_client(_supabase_url, _supabase_key) if _supabase_url and _supabase_key else None
 
 logger = logging.getLogger("chronos-eirini")
 logger.setLevel(logging.INFO)
@@ -406,10 +413,16 @@ RULES:
 
 @server.rtc_session(agent_name="eirini")
 async def run_eirini(ctx: JobContext):
-    # metadata comes from dispatch request. "lesson" or "" for a free conversation.
-    # this allows us to have a single handler that serves for both modes. 
-    is_lesson = ctx.job.metadata == "lesson"
-    is_nahuatl = ctx.job.metadata == "nahuatl"
+    # metadata now comes as "mode|user_id", e.g. "nahuatl|abc123"
+    # split("|", 1) splits only on the first "|" in case the user_id contains special characters
+    metadata_parts = (ctx.job.metadata or "").split("|", 1)
+    mode = metadata_parts[0]                                              # "conversation", "lesson", or "nahuatl"
+    session_user_id = metadata_parts[1] if len(metadata_parts) > 1 else ""  # Supabase user_id, or "" if missing
+
+    is_nahuatl = mode == "nahuatl"
+    is_lesson = mode == "lesson"
+    # is_conversation is anything that's neither nahuatl nor lesson
+
     prompt = NAHUATL_SYSTEM_PROMPT if is_nahuatl else (LESSON_SYSTEM_PROMPT if is_lesson else SYSTEM_PROMPT)
     logger.info(f"Session starting — mode: {'nahuatl' if is_nahuatl else 'lesson' if is_lesson else 'conversation'}")
 
@@ -446,6 +459,8 @@ async def run_eirini(ctx: JobContext):
         ),
         room=ctx.room,
     )
+
+
 
     # only in lesson mode. triggers the opening welcome through the normal
     # LLM pipeline so captionss work exactly like conversation mode. 

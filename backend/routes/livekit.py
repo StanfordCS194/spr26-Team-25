@@ -6,7 +6,7 @@ from livekit.api import AccessToken, VideoGrants, LiveKitAPI, CreateAgentDispatc
 router = APIRouter()
 
 @router.get("/livekit-token")
-async def get_livekit_token():
+async def get_livekit_token(user_id: str = ""):
     # generate a unique room and participant name for this session
     room_name = f"tutor-{uuid.uuid4().hex[:8]}"
     participant_name = f"student-{uuid.uuid4().hex[:6]}"
@@ -29,7 +29,7 @@ async def get_livekit_token():
             CreateAgentDispatchRequest(
                 agent_name="eirini",
                 room=room_name,
-                # no metadata, agent uses SYSTEM_PROMPT (free conversation)
+                metadata=f"conversation|{user_id}"
             )
         )
 
@@ -40,7 +40,7 @@ async def get_livekit_token():
     }
 
 @router.get("/livekit-token-lesson")
-async def get_livekit_token_lesson():
+async def get_livekit_token_lesson(user_id: str = ""):
     # generate a unique room and participant name for this lesson session
     # "lesson" prefix distinguishes these rooms from free-conversation rooms
     # in the LiveKit dashboard, making it easy to see which type of session is running
@@ -67,7 +67,7 @@ async def get_livekit_token_lesson():
             CreateAgentDispatchRequest(
                 agent_name="eirini",
                 room=room_name,
-                metadata="lesson" # signals lesson mode to the agent handler
+                metadata=f"lesson|{user_id}" 
             )
         )
 
@@ -78,7 +78,7 @@ async def get_livekit_token_lesson():
     }
 
 @router.get("/livekit-token-nahuatl")
-async def get_livekit_token_nahuatl():
+async def get_livekit_token_nahuatl(user_id: str = ""):
     # "nahuatl-" prefix distinguishes these rooms from greek conversation/lesson rooms
     # in the LiveKit dashboard, making it easy to see which type of session is running
     room_name = f"nahuatl-{uuid.uuid4().hex[:8]}"
@@ -105,7 +105,7 @@ async def get_livekit_token_nahuatl():
             CreateAgentDispatchRequest(
                 agent_name="eirini",
                 room=room_name,
-                metadata="nahuatl"  # signals nahuatl mode to run_eirini in agent.py
+                metadata=f"nahuatl|{user_id}"  # signals nahuatl mode to run_eirini in agent.py
             )
         )
 

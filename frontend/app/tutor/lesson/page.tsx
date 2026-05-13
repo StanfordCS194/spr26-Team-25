@@ -9,6 +9,7 @@ import {
   useRoomContext,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
+import { supabase } from '@/lib/supabase'
 
 interface LiveKitToken {
   token: string;
@@ -75,13 +76,17 @@ export default function LessonPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // /api/livekit-token-lesson dispatches eirini-lesson (LESSON_SYSTEM_PROMPT)
-    // instead of eirini (SYSTEM_PROMPT), so the agent follows the alphabet curriculum
-    fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson')
-    // fetch('http://localhost:8000/api/livekit-token-lesson')
-      .then(res => res.json())
-      .then(data => setTokenData(data))
-      .catch(() => setError('Could not connect to the tutor. Please try again.'));
+    // get the current user's session so we can pass their ID to the agent
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const userId = session?.user?.id ?? ""  // "" if not logged in (shouldn't happen, but safe fallback)
+
+      // pass user_id as a query param so the agent can save this conversation to Supabase
+      fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson?user_id=${userId}`)
+      // fetch('http://localhost:8000/api/livekit-token-lesson')
+        .then(res => res.json())
+        .then(data => setTokenData(data))
+        .catch(() => setError('Could not connect to the tutor. Please try again.'));
+    })
   }, []);
 
   // token fetch failed so show the error message and stop rendering

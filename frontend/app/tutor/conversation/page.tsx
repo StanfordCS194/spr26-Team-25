@@ -12,6 +12,7 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { Track } from 'livekit-client';
+import { supabase } from '@/lib/supabase'
 
 interface LiveKitToken {
   token: string;
@@ -49,13 +50,18 @@ export default function TutorPage() {
   );
   const router = useRouter();
 
-  // fetch a fresh token on load — each token creates a unique room for this session
   useEffect(() => {
-    fetch('https://spr26-team-25-production.up.railway.app/api/livekit-token')
-    // fetch('http://localhost:8000/api/livekit-token')
-      .then(res => res.json())
-      .then(data => setTokenData(data))
-      .catch(() => setError('Could not connect to the tutor. Please try again.'));
+  // get the current user's session so we can pass their ID to the agent
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const userId = session?.user?.id ?? ""  // "" if not logged in (shouldn't happen, but safe fallback)
+
+      // pass user_id as a query param so the agent can save this conversation to Supabase
+      fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token?user_id=${userId}`)
+      // fetch('http://localhost:8000/api/livekit-token')
+        .then(res => res.json())
+        .then(data => setTokenData(data))
+        .catch(() => setError('Could not connect to the tutor. Please try again.'));
+    })
   }, []);
 
   if (error) {
