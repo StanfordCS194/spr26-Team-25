@@ -483,6 +483,11 @@ async def run_eirini(ctx: JobContext):
         await session.generate_reply(
             instructions="Greet the student warmly in one sentence and tell them they can ask about any color in Nahuatl."
         )
+    # trigger an opening greeting for free conversation mode so the student doesn't have to speak first
+    if not is_lesson and not is_nahuatl:
+        await session.generate_reply(
+            instructions="Greet the student warmly in one sentence, then ask what they would like to learn today — vocabulary, grammar, philosophy, or history."
+        )
         
 if __name__ == "__main__":
     agents.cli.run_app(
