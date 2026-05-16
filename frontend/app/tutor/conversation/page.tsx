@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+// add import below the livekit imports
+import WordInfoPanel from '@/components/WordInfoPanel'
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   LiveKitRoom,
@@ -144,6 +146,45 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
   // ref for the active clear timer so we can cancel it when a new caption arrives
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // backend URL — same server that handles livekit tokens and chat
+  const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
+  // const BACKEND_URL = 'http://localhost:8000'; // uncomment for local dev
+
+  // word-by-word translation map fetched from the backend when each caption arrives.
+  // keyed by the clean Greek word (no punctuation) so glossary[token.word] always hits
+  const [glossary, setGlossary] = useState<Record<string, string>>({});
+
+  // true while the glossary fetch is in flight — tooltips show "..." during this time
+  const [glossaryLoading, setGlossaryLoading] = useState(false);
+
+  // "word-index" string that identifies which word span is currently hovered.
+  // combining word + index means repeated words in the same caption have independent hover states
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  // the Greek word the user clicked — opens WordInfoPanel when set
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+
+  // fetches a word-by-word translation map for the full Greek sentence.
+  // called automatically when each new caption arrives so hover tooltips are pre-loaded
+  // and appear instantly when the user moves their mouse over a word
+  const fetchGlossary = useCallback(async (greekText: string) => {
+    setGlossaryLoading(true);
+    setGlossary({});
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/word-glossary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ greek_text: greekText }),
+      });
+      const data = await res.json();
+      setGlossary(data.glossary ?? {});
+    } catch {
+      // non-critical: tooltips will just show "—" if this fails
+    } finally {
+      setGlossaryLoading(false);
+    }
+  }, []);
+
   const participants = useParticipants();
 
   // listens for caption messages from the agent on the "captions" data channel.
@@ -155,6 +196,8 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
         // cancel the previous timer so it doesn't wipe out this new caption
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         setCaption(data);
+        setHoveredKey(null);        // clear any hovered word from the previous caption
+        fetchGlossary(data.greek);  // pre-fetch translations so hover tooltips are ready immediately
         if (!keepCaptions) {
           // auto-hide: clear after display_ms (estimated from word count in agent.py)
           timeoutRef.current = setTimeout(() => setCaption(null), data.display_ms ?? 4000);
@@ -171,6 +214,18 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
     [{ source: Track.Source.Camera, withPlaceholder: false }],
     { onlySubscribed: true }
   );
+
+  // splits Greek text into tokens for word-by-word interactivity
+  // display keeps punctuation so the subtitle looks natural.
+  // word strips punctuation so glossary lookups and API calls get a clean string
+  function tokenizeGreek(text: string) {
+    return text.split(/(\s+)/).filter(Boolean).map((part, i) => ({
+      isSpace: /^\s+$/.test(part),
+      display: part,
+      word: part.replace(/[.,;·!?:'"«»]+/g, ''),
+      key: `${part}-${i}`,  // unique key so React can diff each span independently
+    }));
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg px-4 pt-16">
@@ -189,14 +244,70 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
         )}
       </div>
 
-      {/* caption area — same layout as lesson page for visual consistency.
+      {/* caption area: same layout as lesson page for visual consistency.
           greek on top (what Eirini said), english below in a blue pill (translation). */}
       <div className="w-full min-h-[90px] flex flex-col items-center justify-center text-center px-6 py-4 rounded-2xl bg-black/50 backdrop-blur-sm border border-white/10">
         {caption ? (
           <>
-            {/* greek text — what Eirini is saying out loud */}
-            <p className="text-white text-xl font-medium leading-snug">{caption.greek}</p>
-            {/* english translation — blue pill so it's visually distinct from the greek */}
+            {/* Greek text — each word is its own span with hover and click handlers */}
+            <p className="text-white text-xl font-medium leading-snug" style={{ userSelect: 'none' }}>
+              {tokenizeGreek(caption.greek).map(token => {
+                if (token.isSpace) return <span key={token.key}> </span>;
+
+                const isHovered = hoveredKey === token.key;
+                const translation = glossary[token.word];
+
+                return (
+                  <span
+                    key={token.key}
+                    style={{ position: 'relative', display: 'inline-block' }}
+                    onMouseEnter={() => setHoveredKey(token.key)}
+                    onMouseLeave={() => setHoveredKey(null)}
+                    onClick={() => setSelectedWord(token.word)}
+                  >
+                    {/* the word itself — turns gold on hover */}
+                    <span style={{
+                      color: isHovered ? '#FFD700' : 'white',
+                      cursor: 'pointer',
+                      borderBottom: isHovered ? '1px solid #FFD700' : '1px solid transparent',
+                      transition: 'color 0.15s, border-color 0.15s',
+                      padding: '0 1px',
+                    }}>
+                      {token.display}
+                    </span>
+
+                    {/* tooltip — appears above the word on hover.
+                        pointerEvents none so it doesn't block the mouse from reaching the word */}
+                    {isHovered && (
+                      <span style={{
+                        position: 'absolute',
+                        bottom: 'calc(100% + 8px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(15, 10, 5, 0.95)',
+                        border: '1px solid #8B6914',
+                        borderRadius: '6px',
+                        padding: '6px 11px',
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.85rem',
+                        fontFamily: 'sans-serif',
+                        color: '#F5E6C8',
+                        zIndex: 20,
+                        pointerEvents: 'none',
+                        lineHeight: 1.5,
+                      }}>
+                        {/* show "..." while glossary is loading, the translation, or "—" as fallback */}
+                        {glossaryLoading ? '...' : translation ?? '—'}
+                        <span style={{ display: 'block', fontSize: '0.68rem', color: '#8B6914', marginTop: '2px' }}>
+                          click to explore
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </p>
+            {/* english translation: blue pill so it's visually distinct from the greek */}
             {caption.english && (
               <p className="text-white text-xl mt-2 bg-blue-600/50 rounded-full px-3 py-1">
                 {caption.english}
@@ -213,6 +324,16 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
       <p className="text-white/30 text-xs mt-2">
         🎙 Speak or ask a question to continue
       </p>
+
+      {/* word info panel — rendered only when the user clicks a Greek word.
+          unmounts completely on close so state resets for the next word */}
+      {selectedWord && (
+        <WordInfoPanel
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          backendUrl={BACKEND_URL}
+        />
+      )}
     </div>
   );
 }

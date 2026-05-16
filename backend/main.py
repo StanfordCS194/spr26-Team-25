@@ -6,6 +6,8 @@ from routes.livekit import router as livekit_router # generates LiveKit tokens f
 from supabase import create_client
 import os
 
+from routes.word_info import router as word_info_router
+
 app = FastAPI(title="Chronos API")
 
 # CORSMiddleware allows the frontend on Vercel to make HTTP requests to this backend (on Railway). Without this, browsers
@@ -24,6 +26,9 @@ app.include_router(chat_router, prefix="/api")
 
 # register LiveKit routes: voice tutor token generation
 app.include_router(livekit_router, prefix="/api")
+
+# register word info routes defined in routes/word_info.py. 
+app.include_router(word_info_router, prefix="/api")
 
 # initializes the Supabase client using the environment variables stored in Railway (backend). 
 # os.environ["SUPABASE_URL"] reads the variable named "SUPABASE_URL" from te environment, which is safer than 

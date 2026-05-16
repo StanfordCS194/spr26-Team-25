@@ -1,0 +1,119 @@
+import json
+import re
+
+from anthropic import AsyncAnthropic
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+router = APIRouter()
+_client = AsyncAnthropic()
+
+# Request models for the two endpoints
+class GlossaryRequest(BaseModel):
+    greek_text: str  # The full Greek sentence from the caption
+
+class WordInfoRequest(BaseModel):
+    word: str        # The individual word the user clicked
+    info_type: str   # "translation" | "morphology" | "examples" | "etymology"
+
+# Prompts for each type of information the user can request.
+# {word} is a placeholder filled in at request time inside word_info().
+PROMPTS = {
+    "translation": (
+        "You are an expert in Ancient Greek and Modern Greek linguistics.\n"
+        "Give a clear, concise translation of the Greek word «{word}».\n"
+        "Include:\n"
+        "1. Primary English meaning(s) with part of speech\n"
+        "2. Any important secondary meanings\n"
+        "3. A note if it's Ancient vs Modern Greek usage\n"
+        "Keep it to 3–5 sentences. Plain text, no markdown."
+    ),
+    "morphology": (
+        "You are an expert in Ancient Greek and Modern Greek linguistics.\n"
+        "Analyze the word «{word}» morphologically.\n"
+        "If it is a verb: identify the tense, person, number, and show the full present-tense conjugation table.\n"
+        "If it is a noun or adjective: identify the case, gender, number, and show the full declension table.\n"
+        "Use plain text with simple alignment. No markdown symbols."
+    ),
+    "examples": (
+        "You are an expert in Ancient Greek literature.\n"
+        "Give 2–3 examples of the word «{word}» used in Ancient Greek classical texts.\n"
+        "For each example:\n"
+        "- The Greek quote (a short phrase or sentence)\n"
+        "- The source (author, work, book/chapter)\n"
+        "- English translation of the quote\n"
+        "Plain text only."
+    ),
+    "etymology": (
+        "You are an expert in Greek etymology.\n"
+        "Explain the etymology and word family of «{word}».\n"
+        "Include:\n"
+        "1. Root/stem meaning and Proto-Indo-European origin if known\n"
+        "2. Related Greek words (compounds, derivatives)\n"
+        "3. English or Spanish words derived from this Greek root\n"
+        "Keep it engaging and educational. 4–6 sentences. Plain text."
+    ),
+}
+
+@router.post("/word-glossary")
+async def word_glossary(req: GlossaryRequest):
+    """
+    Accepts a full Greek sentence and returns a word-by-word translation map.
+    Example response: { "λόγος": "word, reason", "ἐστί": "is" }
+
+    This is called automatically when a new caption arrives so hover tooltips
+    are ready before the user needs them.
+    """
+    result = await _client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=400,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "You are a Greek linguistics expert. "
+                    "Given this Greek text, return a JSON object mapping each distinct "
+                    "meaningful word (without punctuation) to a short English gloss (1–4 words). "
+                    "Skip very minor particles if needed.\n\n"
+                    f"Greek text: {req.greek_text}\n\n"
+                    'Return ONLY the JSON object. Example: {"λόγος": "word, reason", "ἐστί": "is"}'
+                ),
+            }
+        ],
+    )
+
+    raw = result.content[0].text.strip()
+
+    # Claude sometimes adds surrounding text — use regex to extract just the JSON object
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        try:
+            return {"glossary": json.loads(match.group())}
+        except json.JSONDecodeError:
+            pass
+
+    # If parsing fails, return an empty glossary — the frontend handles this gracefully
+    return {"glossary": {}}
+
+@router.post("/word-info")
+async def word_info(req: WordInfoRequest):
+    """
+    Accepts a single Greek word and an info type, and returns a Claude-generated analysis.
+    Called when the user clicks one of the four option buttons in the WordInfoPanel.
+    """
+    prompt_template = PROMPTS.get(req.info_type)
+    if not prompt_template:
+        return {"error": f"Unknown info_type: {req.info_type}"}
+
+    # Fill in the {word} placeholder with the actual word
+    result = await _client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=600,
+        messages=[{"role": "user", "content": prompt_template.format(word=req.word)}],
+    )
+
+    return {
+        "word": req.word,
+        "info_type": req.info_type,
+        "content": result.content[0].text.strip(),
+    }
