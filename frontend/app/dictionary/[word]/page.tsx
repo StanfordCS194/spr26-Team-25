@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 
 const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
@@ -22,7 +22,9 @@ interface NounData  { type: 'noun';  lemma: string; meaning: string; gender: str
 type ConjugationData = VerbData | NounData;
 
 export default function WordDetailPage({ params }: { params: { word: string } }) {
-  const word = decodeURIComponent(params.word);
+  // Next.js 15 passes params as a Promise, use() reads it before the component renders
+  const { word: encodedWord } = use(params);
+  const word = decodeURIComponent(encodedWord);
   const router = useRouter();
 
   const [activeTab, setActiveTab]           = useState('translation');
