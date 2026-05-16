@@ -25,7 +25,7 @@ type ConjugationData = VerbData | NounData;
 interface DictionaryMeaning  { english: string; example_greek: string; example_english: string; }
 interface DictionaryDef      { context: string; meanings: DictionaryMeaning[]; }
 interface DictionarySection  { label: string; definitions: DictionaryDef[]; }
-interface DictionaryEntry    { lemma: string; pronunciation: string; part_of_speech: string; gender: string | null; period: string; sections: DictionarySection[]; }
+interface DictionaryEntry    { searched_word: string; searched_form_info: string; lemma: string; pronunciation: string; part_of_speech: string; gender: string | null; period: string; sections: DictionarySection[]; }
 
 export default function WordDetailPage({ params }: { params: Promise<{ word: string }> }) {
   // Next.js 15 passes params as a Promise, use() reads it before the component renders
@@ -215,20 +215,39 @@ function DictionaryEntryView({ data, error }: { data: DictionaryEntry | null; er
   return (
     <div className="flex flex-col gap-6 font-sans">
 
-      {/* word header: lemma, pronunciation, and period */}
+      {/* word header: searched form on top, lemma below */}
       <div className="pb-4 border-b border-white/10">
+        {/* the exact word the user searched */}
         <div className="flex items-baseline gap-3 flex-wrap">
           <span
             className="text-white text-3xl font-semibold"
             style={{ fontFamily: "'GFS Didot', 'Palatino Linotype', serif" }}
           >
-            {data.lemma}
+            {data.searched_word || data.lemma}
           </span>
-          {/* romanized pronunciation in muted parens*/}
-          {data.pronunciation && (
-            <span className="text-white/40 text-base">({data.pronunciation})</span>
-          )}
         </div>
+
+        {/* grammatical context of the searched form */}
+        {data.searched_form_info && data.searched_word !== data.lemma && (
+          <p className="text-white/40 text-sm mt-1 font-sans">
+            {data.searched_form_info} of{' '}
+            <span
+              className="text-amber-300"
+              style={{ fontFamily: "'GFS Didot', serif" }}
+            >
+              {data.lemma}
+            </span>
+            {data.pronunciation && (
+              <span className="text-white/30 ml-1">({data.pronunciation})</span>
+            )}
+          </p>
+        )}
+
+        {/* if searched word is already the lemma, just show pronunciation */}
+        {data.searched_word === data.lemma && data.pronunciation && (
+          <p className="text-white/40 text-sm mt-1">({data.pronunciation})</p>
+        )}
+
         <p className="text-amber-400/60 text-xs uppercase tracking-widest mt-1">{data.period}</p>
       </div>
 

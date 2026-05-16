@@ -103,8 +103,10 @@ PROMPTS = {
         "Create a full dictionary entry for the Greek word «{word}».\n"
         "Return ONLY a JSON object with this exact shape:\n"
         "{{\n"
+        '  "searched_word": "the exact word as searched, e.g. εστιν",\n'
+        '  "searched_form_info": "grammatical description of the searched form, e.g. 3rd person singular present indicative",\n'
         '  "lemma": "citation form of the word",\n'
-        '  "pronunciation": "simple romanization, e.g. LO-gos or ES-tin",\n'
+        '  "pronunciation": "romanization of the LEMMA, not the searched form, e.g. EI-mi for εἰμί",\n'
         '  "part_of_speech": "noun / verb / adjective / adverb / particle",\n'
         '  "gender": "masculine / feminine / neuter, or null if not a noun",\n'
         '  "period": "Ancient Greek / Modern Greek / Ancient and Modern Greek",\n'
