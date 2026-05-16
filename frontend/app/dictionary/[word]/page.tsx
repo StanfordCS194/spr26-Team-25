@@ -21,6 +21,12 @@ interface NounRow   { case: string; singular: string; plural: string; }
 interface NounData  { type: 'noun';  lemma: string; meaning: string; gender: string; declension: { rows: NounRow[]; }; }
 type ConjugationData = VerbData | NounData;
 
+// types for the structured dictionary entry returned by the dictionary_entry prompt
+interface DictionaryMeaning  { english: string; example_greek: string; example_english: string; }
+interface DictionaryDef      { context: string; meanings: DictionaryMeaning[]; }
+interface DictionarySection  { label: string; definitions: DictionaryDef[]; }
+interface DictionaryEntry    { lemma: string; pronunciation: string; part_of_speech: string; gender: string | null; period: string; sections: DictionarySection[]; }
+
 export default function WordDetailPage({ params }: { params: Promise<{ word: string }> }) {
   // Next.js 15 passes params as a Promise, use() reads it before the component renders
   const { word: encodedWord } = use(params);
@@ -31,6 +37,9 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
   const [cache, setCache]                   = useState<Record<string, string>>({});
   const [conjugation, setConjugation]       = useState<ConjugationData | null>(null);
   const [conjError, setConjError]           = useState(false);
+  // structured dictionary entry, loaded on mount and rendered in the Dictionary tab
+  const [dictEntry, setDictEntry]   = useState<DictionaryEntry | null>(null);
+  const [dictError, setDictError]   = useState(false);
   const [loading, setLoading]               = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
 
@@ -52,6 +61,27 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
       setLoading(false);
     }
   }, [word, cache]);
+
+  // fetches structured JSON for the Dictionary tab
+  const fetchDictEntry = useCallback(async () => {
+    if (dictEntry || dictError) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/word-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, info_type: 'dictionary_entry' }),
+      });
+      const data = await res.json();
+      const match = data.content.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON in response');
+      setDictEntry(JSON.parse(match[0]));
+    } catch {
+      setDictError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [word, dictEntry, dictError]);
 
   // fetches structured JSON for the Conjugation tab
   const fetchConjugation = useCallback(async () => {
@@ -77,12 +107,13 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
 
   // load the Dictionary tab automatically when the page first opens
   useEffect(() => {
-    fetchText('translation');
+    fetchDictEntry();
   }, [word]);
 
   const handleTabChange = (key: string) => {
     setActiveTab(key);
-    if (key === 'conjugation_table') fetchConjugation();
+    if (key === 'translation')       fetchDictEntry();
+    else if (key === 'conjugation_table') fetchConjugation();
     else fetchText(key);
   };
 
@@ -141,7 +172,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
           <p className="text-white/40 text-sm mt-1 font-sans">Ancient Greek</p>
         </div>
 
-        {/* tab bar: underline style matching SpanishDict */}
+        {/* tab bar: underline style */}
         <div className="flex border-b border-white/20 mb-6">
           {TABS.map(tab => (
             <button
@@ -162,6 +193,8 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
         <div className="bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10 p-6 min-h-[320px]">
           {loading ? (
             <p className="text-white/30 text-center pt-20 font-sans">Loading...</p>
+          ) : activeTab === 'translation' ? (
+            <DictionaryEntryView data={dictEntry} error={dictError} />
           ) : activeTab === 'conjugation_table' ? (
             <ConjugationView data={conjugation} error={conjError} />
           ) : (
@@ -171,6 +204,76 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
 
       </div>
     </main>
+  );
+}
+
+// renders the structured dictionary entry 
+function DictionaryEntryView({ data, error }: { data: DictionaryEntry | null; error: boolean }) {
+  if (error) return <p className="text-white/40 text-center pt-20 font-sans">Could not load entry.</p>;
+  if (!data)  return <p className="text-white/20 text-center pt-20 font-sans">Loading...</p>;
+
+  return (
+    <div className="flex flex-col gap-6 font-sans">
+
+      {/* word header: lemma, pronunciation, and period */}
+      <div className="pb-4 border-b border-white/10">
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span
+            className="text-white text-3xl font-semibold"
+            style={{ fontFamily: "'GFS Didot', 'Palatino Linotype', serif" }}
+          >
+            {data.lemma}
+          </span>
+          {/* romanized pronunciation in muted parens*/}
+          {data.pronunciation && (
+            <span className="text-white/40 text-base">({data.pronunciation})</span>
+          )}
+        </div>
+        <p className="text-amber-400/60 text-xs uppercase tracking-widest mt-1">{data.period}</p>
+      </div>
+
+      {/* sections: each section is a grammatical role like TRANSITIVE VERB or MASCULINE NOUN */}
+      {data.sections.map((section, si) => (
+        <div key={si} className="flex flex-col gap-4">
+
+          {/* section label in small caps, muted */}
+          <p className="text-white/35 text-xs uppercase tracking-widest">{section.label}</p>
+
+          {/* numbered definitions */}
+          {section.definitions.map((def, di) => (
+            <div key={di} className="flex flex-col gap-3 pl-1">
+              <p className="text-white/40 text-sm italic">({def.context})</p>
+
+              {/* lettered meanings within each definition */}
+              {def.meanings.map((m, mi) => (
+                <div key={mi} className="pl-4 flex flex-col gap-1.5">
+                  {/* letter label and English meaning in amber */}
+                  <p>
+                    <span className="text-white/40 text-sm mr-2">
+                      {String.fromCharCode(97 + mi)}.
+                    </span>
+                    <span className="text-amber-300 text-sm font-medium">{m.english}</span>
+                  </p>
+
+                  {/* example sentence: Greek on top, English below in muted style */}
+                  {m.example_greek && (
+                    <div className="pl-3 border-l border-white/10 mt-1">
+                      <p
+                        className="text-white/75 text-sm"
+                        style={{ fontFamily: "'GFS Didot', 'Palatino Linotype', serif" }}
+                      >
+                        {m.example_greek}
+                      </p>
+                      <p className="text-white/40 text-sm mt-0.5">{m.example_english}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 

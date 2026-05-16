@@ -95,6 +95,41 @@ PROMPTS = {
         '}}\n\n'
         "Return ONLY the JSON object, no other text."
     ),
+    # structured dictionary entry, used by the /dictionary/[word] page.
+    # returns JSON so the frontend can render numbered definitions and examples
+    # like a proper lexicon entry, not plain text
+    "dictionary_entry": (
+        "You are an Ancient Greek lexicographer.\n"
+        "Create a full dictionary entry for the Greek word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "lemma": "citation form of the word",\n'
+        '  "pronunciation": "simple romanization, e.g. LO-gos or ES-tin",\n'
+        '  "part_of_speech": "noun / verb / adjective / adverb / particle",\n'
+        '  "gender": "masculine / feminine / neuter, or null if not a noun",\n'
+        '  "period": "Ancient Greek / Modern Greek / Ancient and Modern Greek",\n'
+        '  "sections": [\n'
+        '    {{\n'
+        '      "label": "uppercase grammatical label, e.g. TRANSITIVE VERB or MASCULINE NOUN",\n'
+        '      "definitions": [\n'
+        '        {{\n'
+        '          "context": "brief usage context in parentheses, e.g. philosophical or referring to existence",\n'
+        '          "meanings": [\n'
+        '            {{\n'
+        '              "english": "English meaning",\n'
+        '              "example_greek": "short classical Greek phrase or sentence",\n'
+        '              "example_english": "English translation of the example"\n'
+        '            }}\n'
+        '          ]\n'
+        '        }}\n'
+        '      ]\n'
+        '    }}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Include 1 to 3 sections, each with 1 to 3 definitions. "
+        "Use real classical examples from Homer, Plato, Aristotle, or the New Testament where possible. "
+        "Return ONLY the JSON object, no other text."
+    ),
 }
 
 @router.post("/word-glossary")
