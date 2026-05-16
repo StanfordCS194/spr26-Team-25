@@ -21,7 +21,7 @@ interface NounRow   { case: string; singular: string; plural: string; }
 interface NounData  { type: 'noun';  lemma: string; meaning: string; gender: string; declension: { rows: NounRow[]; }; }
 type ConjugationData = VerbData | NounData;
 
-export default function WordDetailPage({ params }: { params: { word: string } }) {
+export default function WordDetailPage({ params }: { params: Promise<{ word: string }> }) {
   // Next.js 15 passes params as a Promise, use() reads it before the component renders
   const { word: encodedWord } = use(params);
   const word = decodeURIComponent(encodedWord);
