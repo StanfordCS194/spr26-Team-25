@@ -64,8 +64,10 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
         body: JSON.stringify({ word, info_type: 'conjugation_table' }),
       });
       const data = await res.json();
-      // Claude returns the JSON as a string inside data.content, so we parse it
-      setConjugation(JSON.parse(data.content));
+      // extract the JSON object even if Claude wraps it in markdown code blocks
+      const match = data.content.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON found in response');
+      setConjugation(JSON.parse(match[0]));
     } catch {
       setConjError(true);
     } finally {
