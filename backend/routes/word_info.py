@@ -53,6 +53,48 @@ PROMPTS = {
         "3. English or Spanish words derived from this Greek root\n"
         "Keep it engaging and educational. 4–6 sentences. Plain text."
     ),
+    # new prompt type used by the dictionary page conjugation tab.
+    # returns structured JSON so the frontend can render a proper table,
+    # instead of plain text like the other prompts
+    "conjugation_table": (
+        "You are an Ancient Greek linguistics expert.\n"
+        "Analyze the word «{word}» and return a JSON object.\n\n"
+        "If it is a VERB, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "verb",\n'
+        '  "lemma": "dictionary form (1st person singular present)",\n'
+        '  "meaning": "to ...",\n'
+        '  "participles": {{"present": "...", "aorist": "...", "perfect": "..."}},\n'
+        '  "indicative": {{\n'
+        '    "tenses": ["Present", "Imperfect", "Aorist", "Future", "Perfect"],\n'
+        '    "rows": [\n'
+        '      {{"person": "1sg", "label": "ἐγώ", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "2sg", "label": "σύ", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "3sg", "label": "αὐτός", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "1pl", "label": "ἡμεῖς", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "2pl", "label": "ὑμεῖς", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "3pl", "label": "αὐτοί", "forms": ["form", "form", "form", "form", "form"]}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "If it is a NOUN or ADJECTIVE, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "noun",\n'
+        '  "lemma": "dictionary form (nominative singular)",\n'
+        '  "meaning": "...",\n'
+        '  "gender": "masculine / feminine / neuter",\n'
+        '  "declension": {{\n'
+        '    "rows": [\n'
+        '      {{"case": "Nominative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Genitive",   "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Dative",     "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Accusative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Vocative",   "singular": "...", "plural": "..."}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "Return ONLY the JSON object, no other text."
+    ),
 }
 
 @router.post("/word-glossary")
