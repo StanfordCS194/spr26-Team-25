@@ -453,14 +453,12 @@ async def run_eirini(ctx: JobContext):
     # )
     # await avatar.start(session, room=ctx.room)
 
-    # await session.start(
-    #     agent=agents.Agent(
-    #         instructions=prompt,
-    #     ),
-    #     room=ctx.room,
-    # )
-
-
+    await session.start(
+        agent=agents.Agent(
+            instructions=prompt,
+        ),
+        room=ctx.room,
+    )
 
     # only in lesson mode. triggers the opening welcome through the normal
     # LLM pipeline so captionss work exactly like conversation mode. 
