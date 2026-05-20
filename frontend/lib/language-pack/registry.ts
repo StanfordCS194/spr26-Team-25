@@ -37,6 +37,14 @@ export const REGISTRY: PackMetadata[] = [
     family: 'Uto-Aztecan',
     url: '/packs/classical-nahuatl.json',
   },
+  {
+    id: 'ojibwe',
+    displayName: 'Ojibwe',
+    displayNameLocal: 'Anishinaabemowin',
+    status: 'endangered',
+    family: 'Algonquian',
+    url: '/packs/ojibwe.json',
+  },
 ];
 
 export function listPacks(): PackMetadata[] {
