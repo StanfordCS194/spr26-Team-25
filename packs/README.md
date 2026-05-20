@@ -55,6 +55,7 @@ A pack is **data**, not code. The backend loader reads the JSON, merges in schem
 ## Documentation map
 
 - [`docs/overview.md`](./docs/overview.md) — what a pack is and how it flows through the system.
+- [`docs/integration.md`](./docs/integration.md) — how to wire packs into the chat backend, voice agent, and frontend. **Read this if you're consuming packs, not authoring them.**
 - [`docs/fields.md`](./docs/fields.md) — field-by-field reference; the authoritative source is `schema.json` itself.
 - [`docs/grounding.md`](./docs/grounding.md) — when and how to attach a dictionary; choosing policy and retrieval strategy.
 - [`docs/sovereignty.md`](./docs/sovereignty.md) — licensing, attribution, governance, including the Cherokee Nation AI policy as a case study.
