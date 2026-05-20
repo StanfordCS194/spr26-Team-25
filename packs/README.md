@@ -9,8 +9,8 @@ Packs are isolated from the rest of the Chronos stack. The Greek app keeps worki
 ```
 packs/
   schema.json                  JSON Schema (authoritative definition)
-  greek.json                   reference: vibrant language, no dictionary
-  nahuatl.json                 reference: small inline dictionary
+  ancient-greek.json           reference: vibrant language, no dictionary
+  classical-nahuatl.json       reference: small inline dictionary
   ojibwe.json                  reference: polysynthetic, strict grounding (Phase 4)
   ojibwe/dictionary.json       large dictionaries live in a sibling file
   ojibwe/LICENSE.md            per-pack license + attribution
@@ -26,8 +26,8 @@ packs/
 ## Quick start: add a language in ten minutes
 
 1. **Copy a template close to your case.**
-   - Vibrant / well-resourced language (e.g. Modern Spanish): start from `greek.json`.
-   - Endangered / dormant language requiring a dictionary: start from `nahuatl.json` once it exists, then `ojibwe.json`.
+   - Vibrant / well-resourced language (e.g. Modern Spanish): start from `ancient-greek.json`.
+   - Endangered / dormant language requiring a dictionary: start from `classical-nahuatl.json`, then `ojibwe.json`.
 2. **Edit identity fields**: `id`, `displayName`, `displayNameLocal`, `status`, `family`, `iso639`.
 3. **Set the script.** Find the Unicode block(s) covering the writing system at [unicode.org/charts](https://www.unicode.org/charts/) and list them in `script.unicodeRanges`.
 4. **Write the prompt template.** Borrow shape from `greek.json`. Use placeholders: `{tutor.name}`, `{displayName}`, `{learner.level}`, `{learner.goal}`, `{learner.time_commitment}`, `{level.guidance}`, `{goal.guidance}`, `{levels_menu}`, `{goals_menu}`, `{vocabulary.lineFormat}`, `{grounding.uncertaintyPhrase}`, `{dictionary_context}`.
