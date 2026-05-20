@@ -18,10 +18,10 @@ packs/
   docs/
     overview.md                what a pack is, request lifecycle, mental model
     fields.md                  field-by-field reference
-    grounding.md               dictionary grounding strategies (Phase 6)
-    sovereignty.md             licensing, attribution, governance (Phase 6)
-    pedagogy.md                writing effective prompt templates (Phase 6)
-    examples.md                walkthroughs of the reference packs (Phase 6)
+    grounding.md               dictionary grounding strategies
+    sovereignty.md             licensing, attribution, governance
+    pedagogy.md                writing effective prompt templates
+    examples.md                walkthroughs of the reference packs
 ```
 
 ## Quick start: add a language in ten minutes
@@ -52,15 +52,12 @@ For the full step-by-step walkthrough, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 A pack is **data**, not code. The backend loader reads the JSON, merges in schema defaults, resolves the dictionary if separate, and produces a typed pack object. The prompt composer takes that pack plus a learner's profile (level, goal, time commitment) and produces a system prompt string. The vocabulary extractor builds a regex from `script.unicodeRanges` and `vocabulary.lineFormat` and pulls structured entries from the model's response. The grounding layer decides whether and how to inject the dictionary into the prompt. None of these components are language-specific — adding a new language never touches Python or TypeScript.
 
-## Status
+## Documentation map
 
-Built in six phases. Phases 1–5 are complete:
-
-- **Phase 1** — schema + Greek/Nahuatl reference packs + skeleton docs.
-- **Phase 2** — backend loader, prompt composer, vocabulary extractor (`backend/language_pack/`).
-- **Phase 3** — frontend types, loader, registry (`frontend/lib/language-pack/`).
-- **Phase 4** — Ojibwe pack with referenced dictionary and polysynthesis support.
-- **Phase 5** — CLI (`python3 -m language_pack {validate, info, repl}`), CI lint, CONTRIBUTING.md.
-- **Phase 6** — full documentation polish.
-
-See [docs/overview.md](./docs/overview.md) for the architecture and [docs/fields.md](./docs/fields.md) for the full field reference. Walkthrough for adding a language: [CONTRIBUTING.md](./CONTRIBUTING.md).
+- [`docs/overview.md`](./docs/overview.md) — what a pack is and how it flows through the system.
+- [`docs/fields.md`](./docs/fields.md) — field-by-field reference; the authoritative source is `schema.json` itself.
+- [`docs/grounding.md`](./docs/grounding.md) — when and how to attach a dictionary; choosing policy and retrieval strategy.
+- [`docs/sovereignty.md`](./docs/sovereignty.md) — licensing, attribution, governance, including the Cherokee Nation AI policy as a case study.
+- [`docs/pedagogy.md`](./docs/pedagogy.md) — writing prompt templates that actually teach.
+- [`docs/examples.md`](./docs/examples.md) — walkthroughs of the three reference packs.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — step-by-step "add your language" guide.
