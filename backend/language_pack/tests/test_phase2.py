@@ -198,6 +198,52 @@ def test_vocabulary_line_format_resolved():
     assert nahuatl.vocabulary.lineFormat == "{word} = {meaning}"
 
 
+# ---------------------------------------------------------------------------
+# Phase 4: Ojibwe pack — dictionaryRef resolution, polysynthesis, scale
+# ---------------------------------------------------------------------------
+
+def test_ojibwe_loads_via_dictionary_ref():
+    pack = load("ojibwe")
+    # dictionaryRef gets nulled by the loader once resolved
+    assert pack.grounding.dictionaryRef is None
+    assert pack.grounding.dictionary is not None
+    assert len(pack.grounding.dictionary.entries) >= 30
+
+
+def test_ojibwe_polysynthesis_segments_present():
+    """At least one Ojibwe entry must carry morphology.segments — the schema
+    extension that motivates polysynthetic-language support."""
+    pack = load("ojibwe")
+    with_morph = [e for e in pack.grounding.dictionary.entries if e.morphology and e.morphology.segments]
+    assert len(with_morph) >= 5, (
+        "Expected Ojibwe pack to demonstrate polysynthesis on multiple entries; "
+        f"found only {len(with_morph)}"
+    )
+    # Spot-check: 'nimaamaa' should break into ni- + maamaa
+    nimaamaa = next((e for e in pack.grounding.dictionary.entries if e.word == "nimaamaa"), None)
+    assert nimaamaa is not None
+    assert nimaamaa.morphology is not None
+    forms = [s.form for s in nimaamaa.morphology.segments]
+    assert forms == ["ni-", "maamaa"]
+
+
+def test_ojibwe_prompt_inlines_full_dictionary():
+    pack = load("ojibwe")
+    profile = LearnerProfile(level="beginner", goal="ancestral-connection", time_commitment="30-60 minutes")
+    composed = compose(pack, profile)
+    for entry in pack.grounding.dictionary.entries:
+        assert entry.word in composed, f"Missing entry in Ojibwe prompt: {entry.word}"
+
+
+def test_ojibwe_sovereignty_is_strict():
+    pack = load("ojibwe")
+    assert pack.sovereignty.license == "CC-BY-NC-SA-3.0"
+    assert "non-commercial" in pack.sovereignty.restrictions
+    assert "attribution-required" in pack.sovereignty.restrictions
+    assert pack.sovereignty.communityPartnership is not None
+    assert "Ojibwe People's Dictionary" in pack.sovereignty.attribution
+
+
 if __name__ == "__main__":
     # Allow `python test_phase2.py` for quick iteration.
     import traceback
