@@ -1,7 +1,7 @@
 'use client';
 
 // add import below the livekit imports
-import WordInfoPanel from '@/components/WordInfoPanel'
+//import WordInfoPanel from '@/components/WordInfoPanel'
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -152,8 +152,6 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
   //const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
   // const BACKEND_URL = 'http://localhost:8000'; // uncomment for local dev
 
-
-
   // word-by-word translation map fetched from the backend when each caption arrives.
   // keyed by the clean Greek word (no punctuation) so glossary[token.word] always hits
   const [glossary, setGlossary] = useState<Record<string, string>>({});
@@ -166,7 +164,7 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   // the Greek word the user clicked — opens WordInfoPanel when set
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  // const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   // fetches a word-by-word translation map for the full Greek sentence.
   // called automatically when each new caption arrives so hover tooltips are pre-loaded
@@ -267,7 +265,8 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
                     style={{ position: 'relative', display: 'inline-block' }}
                     onMouseEnter={() => setHoveredKey(token.key)}
                     onMouseLeave={() => setHoveredKey(null)}
-                    onClick={() => setSelectedWord(token.word)}
+                    // onClick={() => setSelectedWord(token.word)}
+                    onClick={() => window.open(`/dictionary/${token.word}`, '_blank')} // go to the dictionary in new tab
                   >
                     {/* the word itself — turns gold on hover */}
                     <span style={{
@@ -331,13 +330,13 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
 
       {/* word info panel — rendered only when the user clicks a Greek word.
           unmounts completely on close so state resets for the next word */}
-      {selectedWord && (
+      {/* {selectedWord && (
         <WordInfoPanel
           word={selectedWord}
           onClose={() => setSelectedWord(null)}
           backendUrl={BACKEND_URL}
         />
-      )}
+      )} */}
     </div>
   );
 }

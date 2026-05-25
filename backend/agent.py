@@ -76,8 +76,16 @@ class GoogleTTS(agents_tts.TTS):
 
 
 class _GoogleTTSStream(agents_tts.ChunkedStream):
+    def __init__(self, *, tts, input_text, conn_options, caption_event=None):
+        super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
+        self._caption_event = caption_event
 
     async def _run(self, output_emitter: agents_tts.AudioEmitter) -> None:
+        # wait for the caption to be published before starting audio synthesis
+        # this ensures the subtitle appears before the voice starts speaking
+        if self._caption_event is not None:
+            await self._caption_event.wait()
+
         # runs the synchronous Google TTS call on a background thread so it
         # does not block the async event loop while waiting for Google's response
         tts: GoogleTTS = self._tts
@@ -154,6 +162,8 @@ class CaptionisingGoogleTTS(GoogleTTS):
         self._english_buffer: str = ""
         # True after EN: arrives, so continuation english sentences are caught
         self._in_english: bool = False
+        self._caption_task: asyncio.Task | None = None  
+        self._caption_event: asyncio.Event = asyncio.Event()
 
     def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
         # log every chunk that arrives so we can debug timing issues
@@ -162,62 +172,68 @@ class CaptionisingGoogleTTS(GoogleTTS):
         greek, english = parse_response(text)
 
         if text.strip().startswith("GR:"):
-            # new response, reset buffers and start accumulating greek
+            # new response. reset buffers, clear the caption event so audio waits
             self._greek_buffer = greek
             self._english_buffer = ""
             self._in_english = False
+            self._caption_event.clear()
             if english:
-                # GR: and EN: arrived in the same chunk, so publish immediately
+                # GR: and EN: arrived in the same chunk, schedule caption immediately
                 self._english_buffer = english
                 self._in_english = True
-                self._publish_caption(self._greek_buffer, english)
+                self._schedule_caption()
         elif text.strip().startswith("EN:"):
-            # english translation started, publish caption with all accumulated greek
+            # english translation started, schedule caption with all accumulated greek
             self._english_buffer = english
             self._in_english = True
             if self._greek_buffer:
-                self._publish_caption(self._greek_buffer, self._english_buffer)
+                self._schedule_caption()
             return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
         elif self._in_english:
-            # continuation english sentence, update the caption with the full translation
+            # accumulate continuation english sentences and reschedule so the last chunk wins
             self._english_buffer += " " + text.strip()
-            if self._greek_buffer:
-                self._publish_caption(self._greek_buffer, self._english_buffer)
+            self._schedule_caption()
             return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
         elif self._greek_buffer and greek and _has_greek(greek):
-            # middle greek sentence, accumulate
-            if self._greek_buffer:
-                self._greek_buffer += " " + greek
-            else:
-                self._greek_buffer = greek
-            # if this chunk also contains EN: (combined by sentence splitter), publish now
+            # middle greek sentence, accumulate into the buffer
+            self._greek_buffer += " " + greek
+            # if this chunk also contains EN: (combined by sentence splitter), schedule now
             if english:
                 self._english_buffer = english
                 self._in_english = True
-                self._publish_caption(self._greek_buffer, english)
+                self._schedule_caption()
         if not greek or not _has_greek(greek):
             return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
-        # speak only the greek text
-        return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options)
-    
-    def _publish_caption(self, greek: str, english: str) -> None:
-        # calculate display time based on word count, minimum 4 seconds
-        word_count = len(greek.split())
+        # pass caption_event so audio waits for the subtitle to appear before speaking
+        return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options, caption_event=self._caption_event)
+
+    def _schedule_caption(self) -> None:
+        # cancel any pending caption task and reschedule, the last english chunk always wins
+        if self._caption_task and not self._caption_task.done():
+            self._caption_task.cancel()
+        word_count = len(self._greek_buffer.split())
         display_ms = max(4000, int(word_count * 500))
-        asyncio.ensure_future(self._send_caption(greek, english, display_ms))
-    
-    async def _send_caption(self, greek: str, english: str, display_ms: int) -> None:
-        # no delay needed. EN: arrives while TTS is still speaking the greek sentences
-        caption_data = json.dumps({
-            "greek": greek,
-            "english": english,
-            "display_ms": display_ms,
-        }).encode()
-        # publish the caption over the LiveKit data channel so the frontend can display it
-        await self._room.local_participant.publish_data(
-            caption_data,
-            topic="captions",
-        )
+        asyncio.ensure_future(self._send_caption(self._greek_buffer, display_ms))
+
+    async def _send_caption(self, greek: str, display_ms: int) -> None:
+        try:
+            # brief debounce so any continuation english sentences can accumulate before publishing
+            await asyncio.sleep(0.35)
+            # always read the latest buffer. more english may have arrived during the wait
+            caption_data = json.dumps({
+                "greek": greek,
+                "english": self._english_buffer,
+                "display_ms": display_ms,
+            }).encode()
+            # publish the caption over the LiveKit data channel so the frontend can display it
+            await self._room.local_participant.publish_data(
+                caption_data,
+                topic="captions",
+            )
+            # caption is now live. signal the audio stream that it can start speaking
+            self._caption_event.set()
+        except asyncio.CancelledError:
+            pass  # this task was superseded by a newer english chunk, expected
 
 # NahuatlTTS wraps GoogleTTS to intercept the LLM text before synthesis.
 # It works the same way as CaptionisingGoogleTTS but for English instead of Greek:
@@ -588,8 +604,8 @@ async def run_eirini(ctx: JobContext):
     if not is_lesson and not is_nahuatl:
         await session.generate_reply(
             instructions=(
-                "Greet the student warmly and ask what they want to learn today. "
-                "Use 1-2 sentences with natural Greek punctuation."
+                "Greet the student warmly and ask what they want to learn today about Ancient Greek. "
+                "Use 1-2 sentences with natural Koine Greek punctuation."
             )
         )
 
