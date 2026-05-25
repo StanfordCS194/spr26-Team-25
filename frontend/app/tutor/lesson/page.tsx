@@ -10,6 +10,7 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { supabase } from '@/lib/supabase'
+import { BACKEND_URL } from '@/lib/config';
 
 interface LiveKitToken {
   token: string;
@@ -81,8 +82,9 @@ export default function LessonPage() {
       const userId = session?.user?.id ?? ""  // "" if not logged in (shouldn't happen, but safe fallback)
 
       // pass user_id as a query param so the agent can save this conversation to Supabase
-      fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson?user_id=${userId}`)
+      //fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson?user_id=${userId}`)
       // fetch('http://localhost:8000/api/livekit-token-lesson')
+      fetch(`${BACKEND_URL}/api/livekit-token-lesson?user_id=${userId}`)
         .then(res => res.json())
         .then(data => setTokenData(data))
         .catch(() => setError('Could not connect to the tutor. Please try again.'));

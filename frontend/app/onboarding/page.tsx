@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BACKEND_URL } from '@/lib/config';
 
 // the three diagnostic questions shown to the user during onboarding
 const questions = [
@@ -48,7 +49,8 @@ export default function Onboarding() {
       // also send the answers to Railway so we can track them in Supabase.
       // wrapped in try/catch so that if this fails, the user still gets to the app
       try {
-        await fetch('https://spr26-team-25-production.up.railway.app/onboarding', {
+        //await fetch('https://spr26-team-25-production.up.railway.app/onboarding', {
+        await fetch('${BACKEND_URL}/onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

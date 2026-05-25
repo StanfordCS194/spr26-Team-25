@@ -15,6 +15,7 @@ import {
 import '@livekit/components-styles';
 import { Track } from 'livekit-client';
 import { supabase } from '@/lib/supabase'
+import { BACKEND_URL } from '@/lib/config';
 
 interface LiveKitToken {
   token: string;
@@ -58,8 +59,9 @@ export default function TutorPage() {
       const userId = session?.user?.id ?? ""  // "" if not logged in (shouldn't happen, but safe fallback)
 
       // pass user_id as a query param so the agent can save this conversation to Supabase
-      fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token?user_id=${userId}`)
+      //fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token?user_id=${userId}`)
       // fetch('http://localhost:8000/api/livekit-token')
+      fetch(`${BACKEND_URL}/api/livekit-token?user_id=${userId}`)
         .then(res => res.json())
         .then(data => setTokenData(data))
         .catch(() => setError('Could not connect to the tutor. Please try again.'));
@@ -147,8 +149,10 @@ function AvatarWithCaptions({ keepCaptions }: { keepCaptions: boolean }) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // backend URL — same server that handles livekit tokens and chat
-  const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
+  //const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
   // const BACKEND_URL = 'http://localhost:8000'; // uncomment for local dev
+
+
 
   // word-by-word translation map fetched from the backend when each caption arrives.
   // keyed by the clean Greek word (no punctuation) so glossary[token.word] always hits

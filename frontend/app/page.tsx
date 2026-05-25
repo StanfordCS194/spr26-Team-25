@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 // Supabase client for checking if the user is logged in before showing the chat
 import { supabase } from '../lib/supabase';
 
+import { BACKEND_URL } from '@/lib/config';
+
 // Define the shape of a chat message
 // role distinguishes who spoke: 'user' is the learner, 'assistant' is the Chronos tutor
 interface Message {
@@ -84,7 +86,8 @@ export default function Home() {
   // When the session ID changes, fetch the updated vocabulary list from the backend
   useEffect(() => {
     if (sessionId) {
-      fetch(`https://spr26-team-25-production.up.railway.app/api/vocabulary/${sessionId}`)
+      //fetch(`https://spr26-team-25-production.up.railway.app/api/vocabulary/${sessionId}`)
+      fetch('${BACKEND_URL}/api/vocabulary/${sessionId}')
         .then(res => res.json())
         .then(data => setVocab(data.vocabulary || []));
     }
@@ -139,7 +142,8 @@ export default function Home() {
   async function speak(text: string) {
     try {
       // Send the text to the backend, which calls Google Cloud TTS and returns an MP3 audio file
-      const response = await fetch('https://spr26-team-25-production.up.railway.app/api/speak', {
+      //const response = await fetch('https://spr26-team-25-production.up.railway.app/api/speak', {
+      const response = await fetch('${BACKEND_URL}/api/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -174,7 +178,8 @@ export default function Home() {
     setLoading(true);
 
     // Send the message to the FastAPI backend, which forwards it to the AI tutor
-    const response = await fetch('https://spr26-team-25-production.up.railway.app/api/chat', {
+    //const response = await fetch('https://spr26-team-25-production.up.railway.app/api/chat', {
+    const response = await fetch('${BACKEND_URL}/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

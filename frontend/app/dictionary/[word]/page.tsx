@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 
-const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
+// const BACKEND_URL = 'https://spr26-team-25-production.up.railway.app';
 // const BACKEND_URL = 'http://localhost:8000'; // uncomment for local dev
+
+import { BACKEND_URL } from '@/lib/config';
 
 // tab definitions, key matches info_type sent to the backend
 const TABS = [
