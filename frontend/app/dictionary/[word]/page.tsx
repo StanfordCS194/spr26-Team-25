@@ -13,7 +13,7 @@ const TABS = [
   { key: 'translation',      label: 'Dictionary'   },
   { key: 'conjugation_table', label: 'Conjugation' },
   { key: 'examples',          label: 'Examples'    },
-  { key: 'etymology',         label: 'Etymology'   },
+  { key: 'related', label: 'Related' },
 ];
 
 // types for the structured conjugation JSON returned by Claude
@@ -31,6 +31,9 @@ interface DictionaryEntry    { searched_word: string; searched_form_info: string
 
 interface ExampleEntry { greek: string; english: string; source: string; }
 
+interface RelatedWord  { greek: string; english: string; note: string; }
+interface RelatedEntry { word_family: RelatedWord[]; semantic_field: RelatedWord[]; }
+
 export default function WordDetailPage({ params }: { params: Promise<{ word: string }> }) {
   // Next.js 15 passes params as a Promise, use() reads it before the component renders
   const { word: encodedWord } = use(params);
@@ -47,6 +50,9 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
 
   const [examples, setExamples]         = useState<ExampleEntry[] | null>(null);
   const [examplesError, setExamplesError] = useState(false);
+
+  const [related, setRelated]           = useState<RelatedEntry | null>(null);
+  const [relatedError, setRelatedError] = useState(false);
 
   const [loading, setLoading]               = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
@@ -112,6 +118,27 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
     }
   }, [word, examples, examplesError]);
 
+  // fetches structured JSON for the Related tab
+  const fetchRelated = useCallback(async () => {
+    if (related || relatedError) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/word-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, info_type: 'related' }),
+      });
+      const data = await res.json();
+      const match = data.content.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON in response');
+      setRelated(JSON.parse(match[0]));
+    } catch {
+      setRelatedError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [word, related, relatedError]);
+
   // fetches structured JSON for the Conjugation tab
   const fetchConjugation = useCallback(async () => {
     if (conjugation || conjError) return; // skip if already loaded or failed
@@ -144,6 +171,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
     if (key === 'translation')            fetchDictEntry();
     else if (key === 'conjugation_table') fetchConjugation();
     else if (key === 'examples')          fetchExamples();
+    else if (key === 'related')           fetchRelated();
     else fetchText(key);
   };
 
@@ -229,6 +257,8 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
               <ConjugationView data={conjugation} error={conjError} />
           ) : activeTab === 'examples' ? (
               <ExamplesView data={examples} error={examplesError} />
+          ) : activeTab === 'related' ? (
+              <RelatedView data={related} error={relatedError} />
           ) : (
               <TextContent content={cache[activeTab]} />
           )}
@@ -362,6 +392,50 @@ function ExamplesView({ data, error }: { data: ExampleEntry[] | null; error: boo
           <p className="text-white/25 text-xs italic mt-2">{ex.source}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+// renders word family and semantic field sections for the Related tab
+function RelatedView({ data, error }: { data: RelatedEntry | null; error: boolean }) {
+  if (error) return <p className="text-white/40 text-center pt-20 font-sans">Could not load related words.</p>;
+  if (!data)  return <p className="text-white/20 text-center pt-20 font-sans">Loading...</p>;
+
+  return (
+    <div className="flex flex-col gap-6 font-sans">
+
+      {/* word family: derivatives and compounds from the same root */}
+      {data.word_family.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-white/35 text-xs uppercase tracking-widest">Word Family</p>
+          <div className="flex flex-wrap gap-2">
+            {data.word_family.map((w, i) => (
+              <div key={i} className="border border-white/15 rounded-lg px-3 py-2 flex flex-col gap-0.5">
+                <p className="text-white/85 text-sm" style={{ fontFamily: "'GFS Didot', serif" }}>{w.greek}</p>
+                <p className="text-white/50 text-xs">{w.english}</p>
+                <p className="text-white/25 text-xs italic">{w.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* semantic field: conceptually related words with notes on how they differ */}
+      {data.semantic_field.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-white/35 text-xs uppercase tracking-widest">Semantic Field</p>
+          <div className="flex flex-wrap gap-2">
+            {data.semantic_field.map((w, i) => (
+              <div key={i} className="border border-amber-400/15 rounded-lg px-3 py-2 flex flex-col gap-0.5">
+                <p className="text-white/85 text-sm" style={{ fontFamily: "'GFS Didot', serif" }}>{w.greek}</p>
+                <p className="text-white/50 text-xs">{w.english}</p>
+                <p className="text-white/25 text-xs italic">{w.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

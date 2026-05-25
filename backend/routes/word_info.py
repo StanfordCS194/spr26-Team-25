@@ -48,14 +48,21 @@ PROMPTS = {
         "]\n"
         "Use real verifiable classical quotes. Return ONLY the JSON array, no other text."
     ),
-    "etymology": (
-        "You are an expert in Greek etymology.\n"
-        "Explain the etymology and word family of «{word}».\n"
-        "Include:\n"
-        "1. Root/stem meaning and Proto-Indo-European origin if known\n"
-        "2. Related Greek words (compounds, derivatives)\n"
-        "3. English or Spanish words derived from this Greek root\n"
-        "Keep it engaging and educational. 4–6 sentences. Plain text."
+    "related": (
+        "You are an Ancient Greek lexicographer.\n"
+        "Return related words for the Greek word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "word_family": [\n'
+        '    {{"greek": "related word", "english": "short gloss", "note": "e.g. adjective form or verbal noun"}}\n'
+        '  ],\n'
+        '  "semantic_field": [\n'
+        '    {{"greek": "related word", "english": "short gloss", "note": "brief note on how it differs from the searched word"}}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Word family: derivatives, compounds, and verbal forms from the same root. "
+        "Semantic field: words in the same conceptual area with a note explaining how each differs. "
+        "Include 3 to 5 entries per section. Return ONLY the JSON object, no other text."
     ),
     # new prompt type used by the dictionary page conjugation tab.
     # returns structured JSON so the frontend can render a proper table,
