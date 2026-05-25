@@ -188,7 +188,7 @@ async def word_info(req: WordInfoRequest):
     # Fill in the {word} placeholder with the actual word
     result = await _client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=600,
+        max_tokens=1200 if req.info_type in ("dictionary_entry", "conjugation_table") else 600,
         messages=[{"role": "user", "content": prompt_template.format(word=req.word)}],
     )
 
