@@ -27,6 +27,8 @@ interface DictionaryDef      { context: string; meanings: DictionaryMeaning[]; }
 interface DictionarySection  { label: string; definitions: DictionaryDef[]; }
 interface DictionaryEntry    { searched_word: string; searched_form_info: string; lemma: string; pronunciation: string; part_of_speech: string; gender: string | null; period: string; sections: DictionarySection[]; }
 
+interface ExampleEntry { greek: string; english: string; source: string; }
+
 export default function WordDetailPage({ params }: { params: Promise<{ word: string }> }) {
   // Next.js 15 passes params as a Promise, use() reads it before the component renders
   const { word: encodedWord } = use(params);
@@ -40,6 +42,10 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
   // structured dictionary entry, loaded on mount and rendered in the Dictionary tab
   const [dictEntry, setDictEntry]   = useState<DictionaryEntry | null>(null);
   const [dictError, setDictError]   = useState(false);
+
+  const [examples, setExamples]         = useState<ExampleEntry[] | null>(null);
+  const [examplesError, setExamplesError] = useState(false);
+
   const [loading, setLoading]               = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
 
@@ -83,6 +89,27 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
     }
   }, [word, dictEntry, dictError]);
 
+  // fetches structured JSON for the Examples tab
+  const fetchExamples = useCallback(async () => {
+    if (examples || examplesError) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/word-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, info_type: 'examples' }),
+      });
+      const data = await res.json();
+      const match = data.content.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error('No JSON in response');
+      setExamples(JSON.parse(match[0]));
+    } catch {
+      setExamplesError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [word, examples, examplesError]);
+
   // fetches structured JSON for the Conjugation tab
   const fetchConjugation = useCallback(async () => {
     if (conjugation || conjError) return; // skip if already loaded or failed
@@ -112,8 +139,9 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
 
   const handleTabChange = (key: string) => {
     setActiveTab(key);
-    if (key === 'translation')       fetchDictEntry();
+    if (key === 'translation')            fetchDictEntry();
     else if (key === 'conjugation_table') fetchConjugation();
+    else if (key === 'examples')          fetchExamples();
     else fetchText(key);
   };
 
@@ -194,14 +222,15 @@ export default function WordDetailPage({ params }: { params: Promise<{ word: str
           {loading ? (
             <p className="text-white/30 text-center pt-20 font-sans">Loading...</p>
           ) : activeTab === 'translation' ? (
-            <DictionaryEntryView data={dictEntry} error={dictError} />
+              <DictionaryEntryView data={dictEntry} error={dictError} />
           ) : activeTab === 'conjugation_table' ? (
-            <ConjugationView data={conjugation} error={conjError} />
+              <ConjugationView data={conjugation} error={conjError} />
+          ) : activeTab === 'examples' ? (
+              <ExamplesView data={examples} error={examplesError} />
           ) : (
-            <TextContent content={cache[activeTab]} />
+              <TextContent content={cache[activeTab]} />
           )}
         </div>
-
       </div>
     </main>
   );
@@ -307,6 +336,31 @@ function TextContent({ content }: { content?: string }) {
     <p className="text-white/80 text-base leading-relaxed whitespace-pre-wrap font-sans">
       {content}
     </p>
+  );
+}
+
+// renders examples as a two-column layout: Greek on the left, English on the right
+function ExamplesView({ data, error }: { data: ExampleEntry[] | null; error: boolean }) {
+  if (error) return <p className="text-white/40 text-center pt-20 font-sans">Could not load examples.</p>;
+  if (!data)  return <p className="text-white/20 text-center pt-20 font-sans">Loading...</p>;
+
+  return (
+    <div className="flex flex-col font-sans">
+      {data.map((ex, i) => (
+        <div key={i} className={`py-4 ${i > 0 ? 'border-t border-white/10' : ''}`}>
+          <div className="grid grid-cols-2 gap-6">
+            <p
+              className="text-white/85 text-sm leading-relaxed"
+              style={{ fontFamily: "'GFS Didot', 'Palatino Linotype', serif" }}
+            >
+              {ex.greek}
+            </p>
+            <p className="text-white/60 text-sm leading-relaxed">{ex.english}</p>
+          </div>
+          <p className="text-white/25 text-xs italic mt-2">{ex.source}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 

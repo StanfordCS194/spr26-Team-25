@@ -36,13 +36,17 @@ PROMPTS = {
         "Use plain text with simple alignment. No markdown symbols."
     ),
     "examples": (
-        "You are an expert in Ancient Greek literature.\n"
-        "Give 2–3 examples of the word «{word}» used in Ancient Greek classical texts.\n"
-        "For each example:\n"
-        "- The Greek quote (a short phrase or sentence)\n"
-        "- The source (author, work, book/chapter)\n"
-        "- English translation of the quote\n"
-        "Plain text only."
+       "You are an expert in Ancient Greek literature.\n"
+        "Return exactly 5 examples of «{word}» used in Ancient Greek classical texts.\n"
+        "Return ONLY a JSON array with this exact shape:\n"
+        "[\n"
+        '  {{\n'
+        '    "greek": "the Greek sentence or clause containing the word",\n'
+        '    "english": "English translation of the sentence",\n'
+        '    "source": "Author, Work Book.Line, e.g. Homer, Iliad 1.3"\n'
+        '  }}\n'
+        "]\n"
+        "Use real verifiable classical quotes. Return ONLY the JSON array, no other text."
     ),
     "etymology": (
         "You are an expert in Greek etymology.\n"
