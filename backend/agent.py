@@ -148,9 +148,12 @@ class CaptionisingGoogleTTS(GoogleTTS):
         super().__init__(**kwargs)
         # store the room so _send_caption can publish data to the frontend
         self._room = room
-        # stores the english translation from a standalone EN: synthesize call
-        # so it can be attached to the greek caption that arrives just before it
-        self._pending_english: str = ""
+        # accumulates all greek sentences in this response before publishing the caption
+        self._greek_buffer: str = ""
+        # accumulates all english sentences as they arrive after EN:
+        self._english_buffer: str = ""
+        # True after EN: arrives, so continuation english sentences are caught
+        self._in_english: bool = False
 
     def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
         # log every chunk that arrives so we can debug timing issues
@@ -158,52 +161,56 @@ class CaptionisingGoogleTTS(GoogleTTS):
         # split the LLM response into the greek and english parts
         greek, english = parse_response(text)
 
-        if not greek or not _has_greek(greek):
-            # standalone EN: line, store it so _send_caption can pick it up
-            # after its 0.5s wait (the GR call always arrives first, so by the
-            # time it wakes up this will already be set)
-            if english:
-                self._pending_english = english
-            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
-        
-        # only publish a caption if this chunk explicitly started with GR:
-        # sentences that arrive without the tag are overflow from a two-sentence
-        # LLM response. Speak them but don't create a broken caption for them
         if text.strip().startswith("GR:"):
-            # calculate how long to show the caption based on the word count (minimum 3 seconds)
-            word_count = len(greek.split())
-            display_ms = max(3000, int(word_count * 400))
-            # fire off the caption without waiting, the audio can start immediately 
-            asyncio.ensure_future(self._send_caption(greek, english, display_ms))
-
-        # speak only the Greek text
+            # new response, reset buffers and start accumulating greek
+            self._greek_buffer = greek
+            self._english_buffer = ""
+            self._in_english = False
+        elif text.strip().startswith("EN:"):
+            # english translation started, publish caption with all accumulated greek
+            self._english_buffer = english
+            self._in_english = True
+            if self._greek_buffer:
+                self._publish_caption(self._greek_buffer, self._english_buffer)
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._in_english:
+            # continuation english sentence, update the caption with the full translation
+            self._english_buffer += " " + text.strip()
+            if self._greek_buffer:
+                self._publish_caption(self._greek_buffer, self._english_buffer)
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._greek_buffer and greek and _has_greek(greek):
+            # middle greek sentence, accumulate
+            if self._greek_buffer:
+                self._greek_buffer += " " + greek
+            else:
+                self._greek_buffer = greek
+            # if this chunk also contains EN: (combined by sentence splitter), publish now
+            if english:
+                self._english_buffer = english
+                self._in_english = True
+                self._publish_caption(self._greek_buffer, english)
+        if not greek or not _has_greek(greek):
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        # speak only the greek text
         return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options)
-
-
+    
+    def _publish_caption(self, greek: str, english: str) -> None:
+        # calculate display time based on word count, minimum 4 seconds
+        word_count = len(greek.split())
+        display_ms = max(4000, int(word_count * 500))
+        asyncio.ensure_future(self._send_caption(greek, english, display_ms))
+    
     async def _send_caption(self, greek: str, english: str, display_ms: int) -> None:
-        # small delay to let the EN: synthesize call arrive and set _pending_english
-        # tune this value if captions appear too early (increase) or too late (decrease)
-        await asyncio.sleep(0.7)
-
-        # if english was empty when GR arrived, pick up the translation that
-        # arrived while we slept, then clear it so the next response starts fresh
-        if not english and self._pending_english:
-            english = self._pending_english
-        self._pending_english = ""
-
-        # always send a single complete message with both greek and english
-        # the frontend never needs to patch a second message onto the first. package both Greek and English into a single JSON msg for
-        # frontend
+        # no delay needed. EN: arrives while TTS is still speaking the greek sentences
         caption_data = json.dumps({
             "greek": greek,
             "english": english,
-            # how long the frontend should display this caption in milliseconds
             "display_ms": display_ms,
         }).encode()
         # publish the caption over the LiveKit data channel so the frontend can display it
         await self._room.local_participant.publish_data(
             caption_data,
-            # topic lets the frontend filter only caption messages
             topic="captions",
         )
 
@@ -294,8 +301,8 @@ EN: Good evening! What is your name?
 
 Never deviate from this format. Never add any other text outside it.
 
-Keep EVERY response to ONE sentence maximum.
-Each response must be a single GR:/EN: pair — never more than one sentence per response.
+Keep responses to 2-3 sentences maximum. Use natural punctuation.
+Always use a single GR:/EN: pair per response — all sentences in one GR: block and their translations in one EN: block.
 
 Your teaching style is warm, encouraging, and Socratic.
 Check for understanding often. Gently correct mistakes by restating the correct form.
@@ -307,27 +314,20 @@ Speak slowly and clearly.
 # create the LiveKit agent server that listens for incoming sessions and routes them to run_eirini
 server = AgentServer()
 
-# 
 def parse_response(text: str) -> tuple[str, str]:
-    # splits Claude's response into the greek and english parts
-    # if the format is missing or malformed, falls back to treating the whole text as greek
-    # but only if the text doesn't look like a standalone EN: chunk,  in that case
-    # we return empty greek so synthesize() knows to skip it entirely
     greek = ""
     english = ""
     # capture everything after GR: up until EN: or end of string
     gr_match = re.search(r'GR:\s*(.+?)(?:\nEN:|$)', text, re.DOTALL)
-    # capture everything after EN: until end of string
-    en_match = re.search(r'EN:\s*(.+?)$', text, re.DOTALL)
-    # extract the greek text fromt he regex match if found
+    # capture everything after EN: (with optional preceding newline) until end of string
+    en_match = re.search(r'(?:\n|^)EN:\s*(.+?)$', text, re.DOTALL)
     if gr_match:
         greek = gr_match.group(1).strip()
-    # extract the english text from the regex match if found
     if en_match:
         english = en_match.group(1).strip()
-    # if no GR: tag was found and this is not a standalone EN: chunk, treat the whole text as Greek
+    # fallback: treat text as greek, but strip anything after EN: tag
     if not greek and not text.strip().startswith("EN:"):
-        greek = text.strip()
+        greek = re.split(r'\nEN:', text)[0].strip()
     return greek, english
 
 def _parse_nahuatl_response(text: str) -> tuple[str, str]:
@@ -581,7 +581,10 @@ async def run_eirini(ctx: JobContext):
     # trigger an opening greeting for free conversation mode so the student doesn't have to speak first
     if not is_lesson and not is_nahuatl:
         await session.generate_reply(
-            instructions="Greet the student and ask what they want to learn today. ONE sentence only — no more than one."
+            instructions=(
+                "Greet the student warmly and ask what they want to learn today. "
+                "Use 1-2 sentences with natural Greek punctuation."
+            )
         )
 
 # only runs when the file is executed directly (not when imported as a module)
