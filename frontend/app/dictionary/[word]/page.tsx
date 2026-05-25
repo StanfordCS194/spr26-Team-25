@@ -22,7 +22,7 @@ interface NounData  { type: 'noun';  lemma: string; meaning: string; gender: str
 type ConjugationData = VerbData | NounData;
 
 // types for the structured dictionary entry returned by the dictionary_entry prompt
-interface DictionaryMeaning  { english: string; example_greek: string; example_english: string; }
+interface DictionaryMeaning  { english: string; example_greek: string; example_english: string; source: string | null;}
 interface DictionaryDef      { context: string; meanings: DictionaryMeaning[]; }
 interface DictionarySection  { label: string; definitions: DictionaryDef[]; }
 interface DictionaryEntry    { searched_word: string; searched_form_info: string; lemma: string; pronunciation: string; part_of_speech: string; gender: string | null; period: string; sections: DictionarySection[]; }
@@ -284,6 +284,10 @@ function DictionaryEntryView({ data, error }: { data: DictionaryEntry | null; er
                         {m.example_greek}
                       </p>
                       <p className="text-white/40 text-sm mt-0.5">{m.example_english}</p>
+                      {/* source citation in smaller muted text */}
+                      {m.source && (
+                        <p className="text-white/25 text-xs mt-0.5 italic">{m.source}</p>
+                      )}
                     </div>
                   )}
                 </div>
