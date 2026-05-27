@@ -84,7 +84,18 @@ class _GoogleTTSStream(agents_tts.ChunkedStream):
         # wait for the caption to be published before starting audio synthesis
         # this ensures the subtitle appears before the voice starts speaking
         if self._caption_event is not None:
-            await self._caption_event.wait()
+            try:
+                # espera hasta 3 segundos a que EN: publique el caption
+                # si no llega (pipeline secuencial de v1.5.7), procede igual
+                await asyncio.wait_for(self._caption_event.wait(), timeout=3.0)
+            except asyncio.TimeoutError:
+                logger.warning("caption event timeout — playing audio without EN:")
+            else: 
+                # caption was published — wait for frontend to receive and render it
+                # before Irini starts speaking, so the student can read first
+                await asyncio.sleep(0.8)
+        # if self._caption_event is not None:
+        #     await self._caption_event.wait()
 
         # runs the synchronous Google TTS call on a background thread so it
         # does not block the async event loop while waiting for Google's response
@@ -149,6 +160,81 @@ def _has_greek(text: str) -> bool:
 #   3. fires off the caption data to the frontend via the LiveKit data channel
 #   4. passes only the Greek text down to _GoogleTTSStream so the voice stays in Greek
 
+class _GoogleTTSStream(agents_tts.ChunkedStream):
+    def __init__(self, *, tts, input_text, conn_options):
+        super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
+
+    async def _run(self, output_emitter: agents_tts.AudioEmitter) -> None:
+        # small fixed delay so the partial caption renders before audio starts
+        # replaces the old caption_event approach which caused deadlocks in
+        # livekit-agents v1.5.7 (sequential pipeline: stream runs to completion
+        # before the next synthesize() is called, so EN: never arrived in time)
+        await asyncio.sleep(0.3)
+
+        # runs the synchronous Google TTS call on a background thread so it
+        # does not block the async event loop while waiting for Google's response
+        tts: GoogleTTS = self._tts
+        # shortcut to the texttospeech module stored on the parent
+        texttospeech = tts._texttospeech
+
+        # find any text in quotes and add a 350ms pause after it so phonetic sounds like "αα", "βε" feel natural
+        ssml_body = re.sub(r'"([^"]+)"', r'"\1"<break time="350ms"/>', self._input_text)
+        # wrap the text in SSML <speak> tags so Google processes the <break> pauses
+        synthesis_input = texttospeech.SynthesisInput(ssml=f"<speak>{ssml_body}</speak>")
+
+        # run the blocking Google API call in a thread pool so the event loop stays free
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: tts._client.synthesize_speech(
+                input=synthesis_input,
+                voice=texttospeech.VoiceSelectionParams(
+                    # language of the voice (e.g. "el-GR" for Greek)
+                    language_code=tts._language_code,
+                    # specific voice model (e.g. Greek female Wavenet)
+                    name=tts._voice_name,
+                ),
+                audio_config=texttospeech.AudioConfig(
+                    # raw uncompressed audio, best quality for real-time playback
+                    audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+                    # must match the sample_rate as declared in GoogleTTS.__init__
+                    sample_rate_hertz=tts._sample_rate,
+                    # speaking speed. differs per mode (0.82 for Greek, 0.95 for English).
+                    speaking_rate=tts._speaking_rate,
+                ),
+            ),
+        )
+
+        # initialize tells the emitter the format, then push sends the audio bytes
+        # declare the audio format to LiveKit before pushing any bytes
+        output_emitter.initialize(
+            # unique ID so LiveKit can trace this request in its logs
+            request_id=str(uuid.uuid4()),
+            sample_rate=tts._sample_rate,
+            num_channels=1,
+            mime_type="audio/wav",
+        )
+        # send the raw audio bytes to LiveKit to play to the student
+        output_emitter.push(response.audio_content)
+
+
+def _has_greek(text: str) -> bool:
+    # returns True if the text contains any Greek Unicode characters
+    # used to detect whether a sentence from the LLM is Greek or English
+    # livekit-agents splits LLM output into sentences before calling synthesize,
+    # so EN: translation sentences arrive without their tag — we detect them this way
+    return any('\u0370' <= c <= '\u03FF' or '\u1F00' <= c <= '\u1FFF' for c in text)
+
+
+# CaptionisingGoogleTTS wraps GoogleTTS to intercept the LLM text before synthesis.
+# In livekit-agents v1.5.x, before_tts_cb was removed from AgentSession and Agent,
+# so we handle the interception inside the TTS class itself.
+# Every time livekit-agents calls synthesize(), this class:
+#   1. parses the GR:/EN: format from the LLM response
+#   2. skips synthesis entirely if the sentence has no Greek characters
+#   3. immediately publishes a Greek-only caption so the subtitle appears before audio starts
+#   4. once EN: arrives, republishes the full caption with the English translation
+#   5. passes only the Greek text down to _GoogleTTSStream so the voice stays in Greek
+
 class CaptionisingGoogleTTS(GoogleTTS):
 
     def __init__(self, room: rtc.Room, **kwargs):
@@ -162,8 +248,8 @@ class CaptionisingGoogleTTS(GoogleTTS):
         self._english_buffer: str = ""
         # True after EN: arrives, so continuation english sentences are caught
         self._in_english: bool = False
-        self._caption_task: asyncio.Task | None = None  
-        self._caption_event: asyncio.Event = asyncio.Event()
+        self._caption_task: asyncio.Task | None = None
+        # _caption_event removed — caused deadlocks in v1.5.7 sequential pipeline
 
     def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
         # log every chunk that arrives so we can debug timing issues
@@ -172,16 +258,19 @@ class CaptionisingGoogleTTS(GoogleTTS):
         greek, english = parse_response(text)
 
         if text.strip().startswith("GR:"):
-            # new response. reset buffers, clear the caption event so audio waits
+            # new response. reset buffers
             self._greek_buffer = greek
             self._english_buffer = ""
             self._in_english = False
-            self._caption_event.clear()
             if english:
                 # GR: and EN: arrived in the same chunk, schedule caption immediately
                 self._english_buffer = english
                 self._in_english = True
                 self._schedule_caption()
+            else:
+                # publish partial caption (Greek only) immediately so subtitle
+                # appears before the voice starts — English arrives with EN: later
+                asyncio.ensure_future(self._send_partial_caption(greek))
         elif text.strip().startswith("EN:"):
             # english translation started, schedule caption with all accumulated greek
             self._english_buffer = english
@@ -204,8 +293,8 @@ class CaptionisingGoogleTTS(GoogleTTS):
                 self._schedule_caption()
         if not greek or not _has_greek(greek):
             return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
-        # pass caption_event so audio waits for the subtitle to appear before speaking
-        return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options, caption_event=self._caption_event)
+        # no caption_event — audio plays immediately after the fixed 0.3s delay in _run
+        return _GoogleTTSStream(tts=self, input_text=greek, conn_options=conn_options)
 
     def _schedule_caption(self) -> None:
         # cancel any pending caption task and reschedule, the last english chunk always wins
@@ -213,16 +302,41 @@ class CaptionisingGoogleTTS(GoogleTTS):
             self._caption_task.cancel()
         word_count = len(self._greek_buffer.split())
         display_ms = max(4000, int(word_count * 500))
-        asyncio.ensure_future(self._send_caption(self._greek_buffer, display_ms))
+        self._caption_task = asyncio.ensure_future(
+            self._send_caption(self._greek_buffer, display_ms)
+        )
+
+    async def _send_partial_caption(self, greek: str) -> None:
+        """Publish Greek-only caption immediately so subtitle appears before EN: arrives."""
+        try:
+            # short delay so the subtitle renders just before audio starts
+            await asyncio.sleep(0.1)
+            word_count = len(greek.split())
+            display_ms = max(4000, int(word_count * 500))
+            # publish with empty english — frontend shows Greek only until full caption arrives
+            caption_data = json.dumps({
+                "greek": greek,
+                "english": "",
+                "display_ms": display_ms,
+            }).encode()
+            # publish the partial caption over the LiveKit data channel
+            await self._room.local_participant.publish_data(
+                caption_data,
+                topic="captions",
+            )
+        except Exception as e:
+            logger.error(f"Error publishing partial caption: {e}")
 
     async def _send_caption(self, greek: str, display_ms: int) -> None:
         try:
             # brief debounce so any continuation english sentences can accumulate before publishing
             await asyncio.sleep(0.35)
-            # always read the latest buffer. more english may have arrived during the wait
+            # strip any embedded GR:/EN: tags that the LLM accidentally put inside the EN: translation
+            clean_english = re.sub(r'\s*(GR:|EN:).*$', '', self._english_buffer, flags=re.DOTALL).strip()
+            # always read the latest buffer — more english may have arrived during the wait
             caption_data = json.dumps({
                 "greek": greek,
-                "english": self._english_buffer,
+                "english": clean_english,
                 "display_ms": display_ms,
             }).encode()
             # publish the caption over the LiveKit data channel so the frontend can display it
@@ -230,8 +344,6 @@ class CaptionisingGoogleTTS(GoogleTTS):
                 caption_data,
                 topic="captions",
             )
-            # caption is now live. signal the audio stream that it can start speaking
-            self._caption_event.set()
         except asyncio.CancelledError:
             pass  # this task was superseded by a newer english chunk, expected
 
@@ -331,6 +443,11 @@ Check for understanding often. Gently correct mistakes by restating the correct 
 Adjust your level based on how the student responds.
 Never use markdown formatting, bullet points, or symbols in your responses.
 Speak slowly and clearly.
+
+MICROPHONE LIMITATION: The student's microphone can only transcribe English speech
+reliably. Never ask the student to say, repeat, or pronounce anything in Greek out
+loud. Teach Koine Greek passively — demonstrate pronunciation yourself and explain meaning,
+but let the student respond only in English.
 """
 
 # create the LiveKit agent server that listens for incoming sessions and routes them to run_eirini
@@ -383,56 +500,64 @@ You are Ειρήνη (Irini), an expert Ancient Greek teacher conducting a struc
 TOPIC: Lesson 1 — The Ancient Greek Alphabet
 
 THE 24 LETTERS (teach in this order, in groups of 4-5):
-Group 1: Άλφα (ακούγεται "αα", σαν αγάπη), Βήτα (ακούγεται "βε", σαν βλέπω), Γάμμα (ακούγεται "γε", σαν γεια), Δέλτα (ακούγεται "δε", σαν δάσος), Έψιλον (ακούγεται "εε", σαν εδώ)
-Group 2: Ζήτα (ακούγεται "ζε", σαν ζωή), Ήτα (ακούγεται "ιι" μακρύ, σαν ήλιος), Θήτα (ακούγεται "θε", σαν θάλασσα), Ιώτα (ακούγεται "ιι", σαν ίσως), Κάππα (ακούγεται "κε", σαν καλά)
-Group 3: Λάμδα (ακούγεται "λε", σαν λόγος), Μι (ακούγεται "με", σαν μάθημα), Νι (ακούγεται "νε", σαν νερό), Ξι (ακούγεται "ξε", σαν ξένος), Όμικρον (ακούγεται "οο" κοντό, σαν όνομα)
-Group 4: Πι (ακούγεται "πε", σαν πάντα), Ρο (ακούγεται "ρε" τρεμάμενο, σαν ρήμα), Σίγμα (ακούγεται "σε", σαν σοφία), Ταυ (ακούγεται "τε", σαν τέχνη), Ύψιλον (ακούγεται "ιι", σαν ύδωρ)
-Group 5: Φι (ακούγεται "φε", σαν φως), Χι (ακούγεται "χε", σαν χάρη), Ψι (ακούγεται "ψε", σαν ψυχή), Ωμέγα (ακούγεται "οο" μακρύ, σαν ώρα)
+Group 1: Άλφα (ακούγεται "αα", σαν ἀγαπάω), Βήτα (ακούγεται "βε", σαν βασιλεία), Γάμμα (ακούγεται "γε", σαν γῆ), Δέλτα (ακούγεται "δε", σαν δόξα), Έψιλον (ακούγεται "εε", σαν ἐκκλησία)
+Group 2: Ζήτα (ακούγεται "ζδ", σαν ζωή), Ήτα (ακούγεται "ιι" μακρύ, σαν ἦν), Θήτα (ακούγεται "θε", σαν θεός), Ιώτα (ακούγεται "ιι", σαν ἵνα), Κάππα (ακούγεται "κε", σαν κύριος)
+Group 3: Λάμδα (ακούγεται "λε", σαν λόγος), Μι (ακούγεται "με", σαν μαθητής), Νι (ακούγεται "νε", σαν νόμος), Ξι (ακούγεται "ξε", σαν ξένος), Όμικρον (ακούγεται "οο" κοντό, σαν ὁδός)
+Group 4: Πι (ακούγεται "πε", σαν πατήρ), Ρο (ακούγεται "ρε" τρεμάμενο, σαν ῥῆμα), Σίγμα (ακούγεται "σε", σαν σοφία), Ταυ (ακούγεται "τε", σαν τέκνον), Ύψιλον (ακούγεται "ιι", σαν ὑπό)
+Group 5: Φι (ακούγεται "φε", σαν φῶς), Χι (ακούγεται "χε", σαν χάρις), Ψι (ακούγεται "ψε", σαν ψυχή), Ωμέγα (ακούγεται "οο" μακρύ, σαν ὥρα)
 
 LESSON FLOW — follow this sequence STRICTLY:
-1. Welcome the student (1 sentence) → STOP. Wait for Continue.
+1. Welcome the student (2-3 sentences) → STOP. Wait for Continue.
 2. For each group of letters:
-   a. Announce the group (1 sentence) → STOP. Wait for Continue.
+   a. Announce the group (1-2 sentences) → STOP. Wait for Continue.
    b. For each letter, ONE AT A TIME:
-      - Say its name, sound, and example word (1 sentence) → STOP. Wait for Continue.
+      - Say its name, sound, and example word (1-2 sentences) → STOP. Wait for Continue.
       - Do NOT introduce the next letter until the student presses Continue.
-   c. Ask the student to name all letters in the group (1 sentence) → STOP. Wait for Continue.
+   c. Ask the student to name all letters in the group (1-2 sentences) → STOP. Wait for Continue.
    d. Quiz: ask what sound one specific letter makes (1 sentence) → STOP. Wait for Continue.
-   e. React to the student's answer (1 sentence) → STOP. Wait for Continue.
-3. Congratulate after all 5 groups (1 sentence) → STOP.
+   e. React to the student's answer (1-2 sentences) → STOP. Wait for Continue.
+3. Congratulate after all 5 groups (2-3 sentences) → STOP.
 
-CRITICAL: Every single response ends with a full stop and you WAIT.
+CRITICAL: Every single response ends and you WAIT for Continue before moving on.
 Never chain two steps together. Never say Ιώτα and then immediately Κάππα.
-One step. One sentence. Then silence.
+One step at a time. Then silence.
 
 IMMERSION RULES:
 - Always respond in this EXACT format — no exceptions:
-  GR: [your full response in Modern Greek]
+  GR: [your full response in Koine Greek]
   EN: [English translation of exactly what you said in Greek]
-- ONE sentence per response — this is the most critical rule. The system breaks if you send more than one.
-  ❌ GR: Το τέταρτο γράμμα είναι Δέλτα. Το πέμπτο είναι Έψιλον. Τώρα μπορείς να μου πεις;
-  ✅ GR: Το τέταρτο γράμμα είναι Δέλτα, ακούγεται "δε" σαν τη λέξη δάσος.
-  One sentence = one full stop. Wait for the student to press Continue before saying the next thing.
-- Embed Ancient Greek letters and words naturally inside your Modern Greek speech
-- Speak with warmth and patience
-- If a student struggles, repeat and simplify — never skip ahead
-- Encourage the user after every attempt: "Μπράβο!", "Πολύ καλά!", "Ακριβώς!"
-- Never use markdown, bullet points, or symbols outside of Greek letters themselves
+- Keep each response to 2-3 sentences maximum.
+  ❌ GR: Τέταρτον γράμμα ἐστι τὸ Δέλτα. Πέμπτον δέ ἐστι τὸ Ἔψιλον. Δύνασαι εἰπεῖν;
+  ✅ GR: Τέταρτον γράμμα ἐστι τὸ Δέλτα, ἀκούεται "δε" ὡς ἐν τῇ λέξει δόξα.
+  Never introduce two letters in the same response.
+- Speak authentic Koine Greek as used in the New Testament period (roughly 300 BC – 300 AD).
+  Use Koine vocabulary, grammar, and idioms — not Modern Greek.
+- Speak with warmth and patience.
+- If a student struggles, repeat and simplify — never skip ahead.
+- Encourage the student after every attempt: "Εὖγε!", "Καλῶς!", "Ὀρθῶς!"
+- Never use markdown, bullet points, or symbols outside of Greek letters themselves.
 - When speaking about a letter, say its NAME only — never the symbols.
   ❌ "Ζ ζ (Ζήτα)" — the TTS reads the symbol three times
   ✅ "Ζήτα" — clean, one word
-- When describing a sound, ALWAYS use a Greek syllable or example word — never a single letter in quotes.
-  ❌ "Ζήτα που ακούγεται 'z'" — TTS reads 'z' as "ζήτα" (the letter name)
-  ✅ "Ζήτα που ακούγεται 'ζε', σαν τη λέξη ζωή" — TTS reads naturally
-- NEVER say "Καλώς ήρθες" more than once. The welcome happens exactly once at the very start.
-- When responding to a student's spoken answer, say ONLY one sentence — 
-  praise OR a gentle correction — then STOP. 
-  Do NOT add the answer, do NOT ask the next question in the same response.
-  ❌ "Σωστά, το Γάμμα ακούγεται γε. Ο ήχος είναι γε. Τώρα, ποιος είναι ο ήχος του Δέλτα;"
-  ✅ "Σωστά, Μπράβο!"
+- When describing a sound, ALWAYS use a Greek syllable or example word — never a single Latin letter in quotes.
+  ❌ "Ζήτα, ἣ ἀκούεται 'z'" — TTS reads 'z' as "ζήτα" (the letter name)
+  ✅ "Ζήτα, ἣ ἀκούεται 'ζδ', ὡς ἐν τῇ λέξει ζωή" — TTS reads naturally
+- NEVER say "Χαῖρε" more than once. The welcome happens exactly once at the very start.
+- When responding to a student's spoken answer, say ONLY 1-2 sentences —
+  praise OR a gentle correction — then STOP.
+  Do NOT add the answer and ask the next question in the same response.
+  ❌ "Ὀρθῶς! Τὸ Γάμμα ἀκούεται 'γε'. Τί δὲ τὸ Δέλτα;"
+  ✅ "Ὀρθῶς εἶπες, εὖγε!"
 - In the EN: translation, always write sounds as: it sounds like "xx", like the word yyy
-  ❌ it sounds "the" like the word thálassa
-  ✅ it sounds like "the", like the word thálassa (sea)
+  ❌ it sounds "the" like the word theós
+  ✅ it sounds like "th", like the word theós (God)
+- Use a single GR:/EN: pair per response — all sentences in one GR: block, all in one EN: block.
+  ❌ GR: Χαῖρε! EN: Greetings! GR: Πρῶτον... — multiple pairs break the parser
+  ✅ GR: Χαῖρε! Πρῶτον... EN: Greetings! First...
+-  MICROPHONE LIMITATION: The student's microphone can only transcribe English speech
+  reliably. Never ask the student to say, repeat, or pronounce anything in Greek out
+  loud. For quiz steps (step 2d), ask the student to describe the sound in English
+  (e.g. "What sound does Θήτα make?") — not to say the letter aloud.
 """
 
 # Citlali is the Nahuatl tutor. Unlike Eirini who speaks Greek, Citlali speaks
@@ -558,6 +683,8 @@ async def run_eirini(ctx: JobContext):
         room=ctx.room,
     )
 
+    
+
     # only in lesson mode. triggers the opening welcome through the normal
     # LLM pipeline so captionss work exactly like conversation mode. 
     if is_lesson:
@@ -580,9 +707,10 @@ async def run_eirini(ctx: JobContext):
                             # acquire the lock so only one reply runs at a time
                             await session.generate_reply(
                                 instructions=(
-                                    "The student pressed Continue. Check the conversation history to see "
-                                    "what was last said, then deliver exactly the next item in the lesson flow — "
-                                    "one sentence only. Do NOT re-welcome, do NOT repeat anything already said."
+                                    "Check the conversation history. "
+                                    "If there are no prior exchanges, begin the lesson with your opening welcome. "
+                                    "Otherwise, deliver exactly the next item in the lesson flow — "
+                                    "do NOT re-welcome, do NOT repeat anything already said."
                                 )
                             )
                     # schedule do_reply as a background task without blocking the event handler 
@@ -591,10 +719,10 @@ async def run_eirini(ctx: JobContext):
                 # catch any malformed messages so they don't crash the agent
                 logger.error(f"Error handling student data: {e}")
 
-        # kick off the lesson with the opening welcome
-        await session.generate_reply(
-            instructions="Begin the lesson now with your opening welcome."
-        )
+        # first message is now triggered by the frontend once the room is connected
+        # await session.generate_reply(
+        #     instructions="Begin the lesson now with your opening welcome."
+        # )
     # trigger an opening greeting so the student knows they can ask about nahuatl colors
     if is_nahuatl:
         await session.generate_reply(

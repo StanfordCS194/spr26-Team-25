@@ -11,6 +11,7 @@ import {
 import '@livekit/components-styles';
 import { supabase } from '@/lib/supabase'
 import { BACKEND_URL } from '@/lib/config';
+import { RoomEvent } from 'livekit-client';
 
 interface LiveKitToken {
   token: string;
@@ -76,14 +77,18 @@ export default function LessonPage() {
   );
   const router = useRouter();
 
+  // agrega este ref antes del useEffect
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
+    if (fetchedRef.current) return;  // ← evita el segundo fetch de StrictMode
+    fetchedRef.current = true;
+
     // get the current user's session so we can pass their ID to the agent
     supabase.auth.getSession().then(({ data: { session } }) => {
       const userId = session?.user?.id ?? ""  // "" if not logged in (shouldn't happen, but safe fallback)
 
       // pass user_id as a query param so the agent can save this conversation to Supabase
-      //fetch(`https://spr26-team-25-production.up.railway.app/api/livekit-token-lesson?user_id=${userId}`)
-      // fetch('http://localhost:8000/api/livekit-token-lesson')
       fetch(`${BACKEND_URL}/api/livekit-token-lesson?user_id=${userId}`)
         .then(res => res.json())
         .then(data => setTokenData(data))
@@ -182,6 +187,30 @@ function LessonContent({ keepCaptions }: { keepCaptions: boolean }) {
   // ref for the active clear timer so we can cancel it when a new caption arrives
   // without this, a fast second response would clear the first caption too early
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasStartedRef = useRef(false);
+
+  // trigger the first lesson message once the LiveKit room is connected.
+  // this replaces the backend-side generate_reply() call so the caption
+  // data channel is guaranteed to be ready before the first caption arrives.
+  useEffect(() => {
+    const startLesson = () => {
+        if (hasStartedRef.current) return;
+        hasStartedRef.current = true;
+        const data = new TextEncoder().encode(
+            JSON.stringify({ type: 'student_ready' })
+        );
+        room.localParticipant.publishData(data, { reliable: true, topic: 'lesson-control' });
+    };
+
+    // if room is already connected, start immediately
+    // otherwise wait for the Connected event
+    if (room.state === 'connected') {
+        startLesson();
+    } else {
+        room.once(RoomEvent.Connected, startLesson);
+        return () => { room.off(RoomEvent.Connected, startLesson); };
+    }
+  }, [room]);
 
   // listens on the "captions" data channel — same topic the agent publishes to.
   // each message is one complete {greek, english, display_ms} JSON object,
