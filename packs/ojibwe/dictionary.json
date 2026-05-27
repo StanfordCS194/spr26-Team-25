@@ -1,0 +1,394 @@
+{
+  "entries": [
+    {
+      "word": "aaniin",
+      "ipa": "ˈaːniːn",
+      "meaning": "hello; how, what (interrogative)",
+      "partOfSpeech": "greeting / interrogative",
+      "morphology": { "segments": [{ "form": "aaniin", "gloss": "hello.how" }] },
+      "examples": [
+        { "target": "Aaniin ezhinikaazoyan?", "english": "What is your name? (lit. how are you named?)" }
+      ],
+      "dialect": "general",
+      "provenance": {
+        "source": "Ojibwe People's Dictionary",
+        "url": "https://ojibwe.lib.umn.edu/",
+        "verified": false
+      }
+    },
+    {
+      "word": "boozhoo",
+      "ipa": "ˈboːʒoː",
+      "meaning": "hello; welcome",
+      "partOfSpeech": "greeting",
+      "morphology": { "segments": [{ "form": "boozhoo", "gloss": "hello" }] },
+      "dialect": "general",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "miigwech",
+      "ipa": "ˈmiːɡwɛtʃ",
+      "meaning": "thank you",
+      "partOfSpeech": "expression",
+      "morphology": { "segments": [{ "form": "miigwech", "gloss": "thank.you" }] },
+      "dialect": "general",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "giga-waabamin",
+      "ipa": "ɡɪɡaˈwaːbamɪn",
+      "meaning": "I'll see you (again)",
+      "partOfSpeech": "verb (transitive animate, future)",
+      "morphology": {
+        "segments": [
+          { "form": "gi-", "gloss": "2SG.OBJ" },
+          { "form": "ga-", "gloss": "FUT" },
+          { "form": "waabam", "gloss": "see" },
+          { "form": "-in", "gloss": "1SG>2SG" }
+        ]
+      },
+      "dialect": "general",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "ahaaw",
+      "ipa": "aˈhaːw",
+      "meaning": "OK; alright; yes",
+      "partOfSpeech": "interjection",
+      "dialect": "general",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "bezhig",
+      "ipa": "ˈbɛʒɪɡ",
+      "meaning": "one",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "niizh",
+      "ipa": "niːʒ",
+      "meaning": "two",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "niswi",
+      "ipa": "ˈnɪswɪ",
+      "meaning": "three",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "niiwin",
+      "ipa": "ˈniːwɪn",
+      "meaning": "four",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "naanan",
+      "ipa": "ˈnaːnan",
+      "meaning": "five",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "ningodwaaswi",
+      "ipa": "nɪŋɡoˈdwaːswɪ",
+      "meaning": "six",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "niizhwaaswi",
+      "ipa": "niːʒˈwaːswɪ",
+      "meaning": "seven",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nishwaaswi",
+      "ipa": "nɪʃˈwaːswɪ",
+      "meaning": "eight",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "zhaangaswi",
+      "ipa": "ˈʒaːŋɡaswɪ",
+      "meaning": "nine",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "midaaswi",
+      "ipa": "mɪˈdaːswɪ",
+      "meaning": "ten",
+      "partOfSpeech": "number",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nimaamaa",
+      "ipa": "nɪˈmaːmaː",
+      "meaning": "my mother",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "ni-", "gloss": "1SG.POSS" },
+          { "form": "maamaa", "gloss": "mother" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "noos",
+      "ipa": "noːs",
+      "meaning": "my father",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "n-", "gloss": "1SG.POSS" },
+          { "form": "oos", "gloss": "father" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nookomis",
+      "ipa": "ˈnoːkomɪs",
+      "meaning": "my grandmother",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "n-", "gloss": "1SG.POSS" },
+          { "form": "ookomis", "gloss": "grandmother" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nimishoomis",
+      "ipa": "nɪmɪˈʃoːmɪs",
+      "meaning": "my grandfather",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "ni-", "gloss": "1SG.POSS" },
+          { "form": "mishoomis", "gloss": "grandfather" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nidaanis",
+      "ipa": "nɪˈdaːnɪs",
+      "meaning": "my daughter",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "ni-", "gloss": "1SG.POSS" },
+          { "form": "daanis", "gloss": "daughter" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "ningozis",
+      "ipa": "nɪˈŋɡozɪs",
+      "meaning": "my son",
+      "partOfSpeech": "noun (dependent, 1SG possessed)",
+      "morphology": {
+        "segments": [
+          { "form": "ni-", "gloss": "1SG.POSS" },
+          { "form": "ngozis", "gloss": "son" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "ma'iingan",
+      "ipa": "maˈʔiːŋɡan",
+      "meaning": "wolf",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "makwa",
+      "ipa": "ˈmakwa",
+      "meaning": "bear",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "mooz",
+      "ipa": "moːz",
+      "meaning": "moose",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "waawaashkeshi",
+      "ipa": "waːˈwaːʃkɛʃɪ",
+      "meaning": "deer",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "amik",
+      "ipa": "ˈamɪk",
+      "meaning": "beaver",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nigig",
+      "ipa": "ˈnɪɡɪɡ",
+      "meaning": "otter",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "minikwe",
+      "ipa": "ˈmɪnɪkwɛ",
+      "meaning": "he/she drinks (something)",
+      "partOfSpeech": "verb (animate intransitive, 3SG)",
+      "morphology": {
+        "segments": [
+          { "form": "minikwe", "gloss": "drink.AI.3SG" }
+        ]
+      },
+      "examples": [
+        { "target": "Niminikwe nibi.", "english": "I drink water." }
+      ],
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "wiisini",
+      "ipa": "ˈwiːsɪnɪ",
+      "meaning": "he/she eats",
+      "partOfSpeech": "verb (animate intransitive, 3SG)",
+      "morphology": {
+        "segments": [
+          { "form": "wiisini", "gloss": "eat.AI.3SG" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nibaa",
+      "ipa": "ˈnɪbaː",
+      "meaning": "he/she sleeps",
+      "partOfSpeech": "verb (animate intransitive, 3SG)",
+      "morphology": {
+        "segments": [
+          { "form": "nibaa", "gloss": "sleep.AI.3SG" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "niibawi",
+      "ipa": "ˈniːbawɪ",
+      "meaning": "he/she stands",
+      "partOfSpeech": "verb (animate intransitive, 3SG)",
+      "morphology": {
+        "segments": [
+          { "form": "niibawi", "gloss": "stand.AI.3SG" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "nibi",
+      "ipa": "ˈnɪbɪ",
+      "meaning": "water",
+      "partOfSpeech": "noun (inanimate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "ishkode",
+      "ipa": "ˈɪʃkoːdɛ",
+      "meaning": "fire",
+      "partOfSpeech": "noun (inanimate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "giizis",
+      "ipa": "ˈɡiːzɪs",
+      "meaning": "sun; month",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "dibik-giizis",
+      "ipa": "ˈdɪbɪkˈɡiːzɪs",
+      "meaning": "moon (lit. night-sun)",
+      "partOfSpeech": "noun (animate, compound)",
+      "morphology": {
+        "segments": [
+          { "form": "dibik", "gloss": "night" },
+          { "form": "giizis", "gloss": "sun" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "anang",
+      "ipa": "ˈanaŋ",
+      "meaning": "star",
+      "partOfSpeech": "noun (animate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "aki",
+      "ipa": "ˈakɪ",
+      "meaning": "earth; land",
+      "partOfSpeech": "noun (inanimate)",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "noongom",
+      "ipa": "ˈnoːŋɡom",
+      "meaning": "now; today",
+      "partOfSpeech": "adverb",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "minawaa",
+      "ipa": "ˈmɪnawaː",
+      "meaning": "again; and",
+      "partOfSpeech": "adverb",
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "anishinaabe",
+      "ipa": "anɪʃɪˈnaːbɛ",
+      "meaning": "an Anishinaabe person; an Ojibwe person",
+      "partOfSpeech": "noun (animate)",
+      "morphology": {
+        "segments": [
+          { "form": "anishinaabe", "gloss": "Anishinaabe.person" }
+        ]
+      },
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    },
+    {
+      "word": "anishinaabemowin",
+      "ipa": "anɪʃɪˈnaːbɛmowɪn",
+      "meaning": "the Ojibwe language",
+      "partOfSpeech": "noun (inanimate, abstract)",
+      "morphology": {
+        "segments": [
+          { "form": "anishinaabe", "gloss": "Anishinaabe" },
+          { "form": "-mo-", "gloss": "speak" },
+          { "form": "-win", "gloss": "NMLZ" }
+        ]
+      },
+      "examples": [
+        { "target": "Anishinaabemowin gikinoo'amaagewin.", "english": "Teaching the Ojibwe language." }
+      ],
+      "provenance": { "source": "Ojibwe People's Dictionary", "url": "https://ojibwe.lib.umn.edu/", "verified": false }
+    }
+  ]
+}

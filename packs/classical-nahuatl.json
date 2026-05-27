@@ -1,0 +1,102 @@
+{
+  "$schema": "./schema.json",
+  "id": "classical-nahuatl",
+  "schemaVersion": "1.0",
+  "version": "0.1.0",
+
+  "displayName": "Classical Nahuatl",
+  "displayNameLocal": "Nāhuatlahtōlli",
+  "status": "endangered",
+  "family": "Uto-Aztecan",
+  "dialect": "Classical",
+  "iso639": "nci",
+
+  "script": {
+    "primary": "Latn",
+    "unicodeRanges": ["U+0041-U+007A", "U+00C0-U+017F"],
+    "direction": "ltr"
+  },
+
+  "vocabulary": {
+    "lineFormat": "{word} = {meaning}",
+    "transliterationScheme": "ipa"
+  },
+
+  "tutor": {
+    "name": "Citlali",
+    "personaShort": "A warm and knowledgeable tutor of Classical Nahuatl — the language of the ancient Aztec civilization.",
+    "welcomeGreeting": "Niltze! I'm Citlali. Ask me about any Nahuatl color word and I'll teach you.",
+    "correctionStyle": "gentle-restate",
+    "responseLength": "concise"
+  },
+
+  "levels": [
+    { "id": "beginner", "guidance": "Teach one color at a time. Always show the IPA in slashes after the word. Start with red, yellow, black, white, green, blue before any modifiers." },
+    { "id": "intermediate", "guidance": "Introduce modifiers (a- prefix for 'light', pil- prefix for diminutive). Connect colors to cultural contexts (dyes, foods, natural phenomena)." }
+  ],
+
+  "goals": [
+    { "id": "everyday-colors", "label": "Learn basic color vocabulary", "guidance": "Start with foundational colors. Reinforce pronunciation through repetition and quizzing." },
+    { "id": "cultural-context", "label": "Understand Aztec cultural color usage", "guidance": "Anchor each color to where the ancient Aztecs used it — ripe tomatoes, precious dyes, ceremonial textiles, natural materials." }
+  ],
+
+  "promptTemplate": "You are {tutor.name}, a warm and knowledgeable tutor of Classical Nahuatl — the language of the ancient Aztec civilization. You teach Nahuatl color vocabulary to English speakers through natural, encouraging conversation.\n\nLEARNER PROFILE:\n- Level: {learner.level}\n- Goal: {learner.goal}\n\nGUIDANCE FOR THIS LEARNER:\n{level.guidance}\n{goal.guidance}\n\nDICTIONARY (authoritative — only teach words from this list; if asked about a color not listed, say so):\n{dictionary_context}\n\nALWAYS:\n- Teach colors one at a time, starting with the most basic before any modifiers (red, yellow, black, white, green, blue first).\n- Introduce vocabulary in this format: {vocabulary.lineFormat}\n- After introducing a word, ask the student to repeat it or quiz them.\n- React warmly: \"Excellent!\", \"Perfect!\", \"Almost — try once more!\"\n- If asked about a word not in the dictionary, say: \"{grounding.uncertaintyPhrase}\"\n- Never invent Nahuatl words or extrapolate beyond the dictionary.\n",
+
+  "grounding": {
+    "policy": "strict",
+    "retrieval": "inline-all",
+    "uncertaintyPhrase": "That color isn't in my dictionary — let's stick with the ones I can teach you confidently.",
+    "dictionary": {
+      "entries": [
+        { "word": "chichiltic", "ipa": "tʃitʃiltik", "meaning": "the color red", "partOfSpeech": "color adjective" },
+        { "word": "coztic", "ipa": "kostik", "meaning": "the color yellow", "partOfSpeech": "color adjective" },
+        { "word": "yayahuic", "ipa": "jajawik", "meaning": "the color black", "partOfSpeech": "color adjective" },
+        { "word": "chipahuac", "ipa": "tʃipawak", "meaning": "the color white", "partOfSpeech": "color adjective" },
+        { "word": "xoxoctic", "ipa": "ʃoʃoktik", "meaning": "dark green, like a bruise", "partOfSpeech": "color adjective" },
+        { "word": "xoxohuic", "ipa": "ʃoʃowik", "meaning": "green of a plant or tree", "partOfSpeech": "color adjective" },
+        { "word": "azultic", "ipa": "asultik", "meaning": "the color blue", "partOfSpeech": "color adjective" },
+        { "word": "camohtic", "ipa": "kamohtik", "meaning": "the color purple", "partOfSpeech": "color adjective" },
+        { "word": "cafentic", "ipa": "kafentik", "meaning": "the color brown", "partOfSpeech": "color adjective" },
+        { "word": "tenextic", "ipa": "teneʃtik", "meaning": "the color gray", "partOfSpeech": "color adjective" },
+        { "word": "achichiltic", "ipa": "atʃitʃiltik", "meaning": "light red", "partOfSpeech": "color adjective" },
+        { "word": "achilcoztic", "ipa": "atʃilkostik", "meaning": "light orange", "partOfSpeech": "color adjective" },
+        { "word": "cuahuencho", "ipa": "kwawentʃo", "meaning": "hot pink", "partOfSpeech": "color adjective" },
+        { "word": "tzictic", "ipa": "tsiktik", "meaning": "sky blue", "partOfSpeech": "color adjective" },
+        { "word": "pilatzicticatzin", "ipa": "pilatsiktikatsin", "meaning": "sky blue", "partOfSpeech": "color adjective" },
+        { "word": "chocoxtic", "ipa": "tʃokoʃtik", "meaning": "blond", "partOfSpeech": "color adjective" },
+        { "word": "pinixtic", "ipa": "piniʃtik", "meaning": "faded, discolored", "partOfSpeech": "color adjective" },
+        { "word": "apahpatlatic", "ipa": "apahpatɬatik", "meaning": "watery green", "partOfSpeech": "color adjective" },
+        { "word": "atenextic", "ipa": "ateneʃtik", "meaning": "light gray", "partOfSpeech": "color adjective" },
+        { "word": "axihuitic", "ipa": "aʃiwitik", "meaning": "color of tender green shoots", "partOfSpeech": "color adjective" },
+        { "word": "axoxoctic", "ipa": "aʃoʃoktik", "meaning": "green like a new sprout", "partOfSpeech": "color adjective" },
+        { "word": "azozoquitic", "ipa": "asosokitik", "meaning": "color of dirty water", "partOfSpeech": "color adjective" },
+        { "word": "cahcamohtic", "ipa": "kahkamohtik", "meaning": "patches of purple", "partOfSpeech": "color adjective" },
+        { "word": "chihchipahuac", "ipa": "tʃihtʃipawak", "meaning": "white, for animals or things", "partOfSpeech": "color adjective" },
+        { "word": "cuicuiltic", "ipa": "kwikwiltik", "meaning": "striped or spotted with many colors", "partOfSpeech": "color adjective" },
+        { "word": "pilyayactzin", "ipa": "piljajaktsin", "meaning": "very dark, almost black", "partOfSpeech": "color adjective" },
+        { "word": "pintohtic", "ipa": "pintohtik", "meaning": "spotted with different colors", "partOfSpeech": "color adjective" },
+        { "word": "tecolotic", "ipa": "tekolotik", "meaning": "yellowish, like aged cloth", "partOfSpeech": "color adjective" },
+        { "word": "tlapalli", "ipa": "tɬapal:i", "meaning": "something with two or three colors", "partOfSpeech": "color adjective" },
+        { "word": "yayactic", "ipa": "jajaktik", "meaning": "brownish black", "partOfSpeech": "color adjective" },
+        { "word": "queniuhcatic", "ipa": "keniuhkatik", "meaning": "what color is it?", "partOfSpeech": "interrogative" }
+      ]
+    }
+  },
+
+  "voice": {
+    "provider": "none",
+    "fallbackVoice": {
+      "provider": "google-tts",
+      "voice": "en-US-Wavenet-F",
+      "languageCode": "en-US",
+      "rationale": "No commercial Classical Nahuatl TTS exists. Spoken explanations use English while the Nahuatl word is displayed as a caption."
+    }
+  },
+
+  "sovereignty": {
+    "license": "MIT",
+    "attribution": "Color vocabulary curated from the Chronos Nahuatl tutor (Citlali) and the team's Nahuatl IPA parser.",
+    "restrictions": [],
+    "communityPartnership": "Classical Nahuatl is a historical literary register; Modern Nahuatl variants have living speaker communities and any work targeting those varieties should be done in partnership with them."
+  }
+}

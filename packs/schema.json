@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chronos.app/packs/schema.json",
+  "title": "Chronos Language Pack",
+  "description": "Declarative description of a language the Chronos tutor can teach. A pack is a single JSON file (optionally referencing a sibling dictionary file) that defines identity, script, pedagogy, prompt template, dictionary grounding, voice, and data sovereignty. The pack is consumed by both backend (prompt composition, vocabulary extraction) and frontend (display, picker) loaders.",
+  "type": "object",
+  "required": ["id", "displayName", "status", "script", "tutor", "promptTemplate", "sovereignty"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Pointer to this schema. Conventionally './schema.json' or a URL. Enables IDE field hints."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,40}$",
+      "description": "Stable slug. Lowercase letters, digits, hyphens. Used in URLs, file paths, registry keys. Must be unique across packs."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Pack schema version this file targets. Loaders may refuse incompatible versions."
+    },
+    "version": {
+      "type": "string",
+      "description": "Pack version (semver-ish). Bump when prompt/dictionary/pedagogy changes meaningfully."
+    },
+
+    "displayName": {
+      "type": "string",
+      "description": "Human-readable name in English (e.g. 'Ancient Greek', 'Ojibwe')."
+    },
+    "displayNameLocal": {
+      "type": "string",
+      "description": "Name of the language as written in the language itself (e.g. 'Ἑλληνική', 'Anishinaabemowin'). Optional but encouraged."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["vibrant", "endangered", "dormant", "reconstructed"],
+      "description": "Vitality. Drives default grounding policy: 'vibrant' -> 'open', 'endangered'/'dormant'/'reconstructed' -> 'strict'. Authors can override."
+    },
+    "family": {
+      "type": "string",
+      "description": "Language family (e.g. 'Indo-European', 'Algonquian', 'Uto-Aztecan'). Informational."
+    },
+    "dialect": {
+      "type": "string",
+      "description": "Specific variety covered by this pack (e.g. 'Attic', 'Ayacucho-Chanka', 'general'). Informational."
+    },
+    "iso639": {
+      "type": "string",
+      "description": "ISO 639-3 code if one exists. Omit for languages without an assigned code."
+    },
+
+    "script": {
+      "type": "object",
+      "required": ["unicodeRanges"],
+      "additionalProperties": false,
+      "description": "How the language is written. The vocabulary extractor builds its regex from unicodeRanges + vocabulary.lineFormat.",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "ISO 15924 script tag or descriptive label (e.g. 'Grek', 'Latn', 'Cher', 'Latn-fiero')."
+        },
+        "unicodeRanges": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^U\\+[0-9A-Fa-f]{4,6}(-U\\+[0-9A-Fa-f]{4,6})?$"
+          },
+          "description": "Unicode codepoint ranges that constitute the language's primary script. Used to build the vocabulary extraction regex. Example: ['U+0370-U+03FF', 'U+1F00-U+1FFF'] for Greek."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["ltr", "rtl"],
+          "default": "ltr",
+          "description": "Reading direction."
+        }
+      }
+    },
+
+    "vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Shape of vocabulary lines the tutor will emit, and how to extract them from responses.",
+      "properties": {
+        "lineFormat": {
+          "type": "string",
+          "description": "Template for vocabulary lines. Supported placeholders: {word}, {translit}, {meaning}. Default depends on transliterationScheme: '{word} ({translit}) = {meaning}' when transliteration is used, '{word} = {meaning}' otherwise."
+        },
+        "transliterationScheme": {
+          "type": "string",
+          "enum": ["none", "ipa", "romanization", "both"],
+          "default": "none",
+          "description": "Whether and how words are transliterated alongside the native script. Drives default lineFormat and is shown to the model."
+        }
+      }
+    },
+
+    "tutor": {
+      "type": "object",
+      "required": ["name", "personaShort"],
+      "additionalProperties": false,
+      "description": "Personality and pedagogical voice of the tutor for this language.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tutor's name (e.g. 'Chronos', 'Citlali', 'Nishin')."
+        },
+        "personaShort": {
+          "type": "string",
+          "description": "One-sentence persona description used in the prompt."
+        },
+        "welcomeGreeting": {
+          "type": "string",
+          "description": "Optional auto-greeting on session start."
+        },
+        "correctionStyle": {
+          "type": "string",
+          "enum": ["gentle-restate", "direct", "socratic"],
+          "default": "gentle-restate",
+          "description": "How the tutor handles learner mistakes."
+        },
+        "responseLength": {
+          "type": "string",
+          "enum": ["concise", "balanced", "thorough"],
+          "default": "balanced",
+          "description": "Default verbosity. May be overridden by the prompt template."
+        }
+      }
+    },
+
+    "levels": {
+      "type": "array",
+      "description": "Learner proficiency tiers, each with free-form pedagogical guidance. The 'guidance' string is injected into the prompt when this level is selected. Defaults to beginner/intermediate/advanced placeholders if omitted.",
+      "items": {
+        "type": "object",
+        "required": ["id", "guidance"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "Slug used to select this level (e.g. 'beginner')." },
+          "label": { "type": "string", "description": "Optional human label for UI." },
+          "guidance": { "type": "string", "description": "Pedagogical instructions for the model when this level is selected. Free-form prose." }
+        }
+      }
+    },
+
+    "goals": {
+      "type": "array",
+      "description": "Learner motivations, each with free-form pedagogical guidance. The 'guidance' string is injected into the prompt when this goal is selected.",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "guidance"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "Slug used to select this goal." },
+          "label": { "type": "string", "description": "Human label shown in UI." },
+          "guidance": { "type": "string", "description": "Pedagogical instructions for the model when this goal is selected." }
+        }
+      }
+    },
+
+    "promptTemplate": {
+      "type": "string",
+      "description": "System prompt with substitution placeholders. Supported placeholders: {tutor.name}, {tutor.personaShort}, {displayName}, {displayNameLocal}, {learner.level}, {learner.goal}, {learner.time_commitment}, {level.guidance}, {goal.guidance}, {levels_menu}, {goals_menu}, {vocabulary.lineFormat}, {grounding.uncertaintyPhrase}, {dictionary_context}. {levels_menu}/{goals_menu} render the full lists from levels[]/goals[]; {level.guidance}/{goal.guidance} render only the currently selected entry. Unknown placeholders are left literal. {dictionary_context} resolves to empty string when no dictionary is configured, so the same template shape works for vibrant and dictionary-grounded packs."
+    },
+
+    "grounding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the tutor uses external sources (dictionary, corpus). Critical for endangered/dormant languages where the model cannot be trusted to extrapolate.",
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": ["open", "prefer", "strict"],
+          "description": "How strictly the model defers to the dictionary. 'open' = free extrapolation. 'prefer' = use dictionary first, flag fill-ins. 'strict' = only use dictionary; express uncertainty otherwise. Default: derived from status (vibrant -> open, else strict)."
+        },
+        "retrieval": {
+          "type": "string",
+          "enum": ["none", "inline-all", "rag", "exact-lookup"],
+          "default": "none",
+          "description": "How dictionary content reaches the prompt. 'inline-all' fits dictionaries up to ~500 entries directly in the system prompt. 'rag' embeds and retrieves top-K (not implemented in v1). 'exact-lookup' regex-matches learner input against the dictionary."
+        },
+        "dictionaryRef": {
+          "type": "string",
+          "description": "Relative path to a sibling JSON file holding dictionary entries. Used when the dictionary is large enough to warrant separation."
+        },
+        "dictionary": {
+          "type": "object",
+          "description": "Inline dictionary. Mutually exclusive with dictionaryRef.",
+          "additionalProperties": false,
+          "properties": {
+            "entries": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/DictionaryEntry" }
+            }
+          }
+        },
+        "uncertaintyPhrase": {
+          "type": "string",
+          "default": "I'm not certain about that word — let's note it and check with a fluent speaker or reference.",
+          "description": "What the tutor says when asked about content outside the dictionary, under strict grounding."
+        }
+      },
+      "not": { "required": ["dictionary", "dictionaryRef"] }
+    },
+
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional speech synthesis configuration. Be honest: 'none' is a valid choice when no TTS exists for the language.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["none", "google-tts", "elevenlabs", "azure", "recorded"],
+          "default": "none",
+          "description": "TTS backend. 'recorded' means the pack relies on per-entry audioUrl rather than synthesis."
+        },
+        "voice": {
+          "type": "string",
+          "description": "Provider-specific voice identifier (e.g. 'el-GR-Wavenet-A')."
+        },
+        "languageCode": {
+          "type": "string",
+          "description": "BCP-47 tag passed to the TTS provider (e.g. 'el-GR')."
+        },
+        "fallbackVoice": {
+          "type": "object",
+          "description": "Approximate-language fallback when the target language has no native TTS (e.g. Spanish-MX for Nahuatl).",
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string" },
+            "voice": { "type": "string" },
+            "languageCode": { "type": "string" },
+            "rationale": { "type": "string", "description": "Why this approximation is acceptable." }
+          }
+        },
+        "audioPerEntry": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if dictionary entries carry their own audioUrl. UI can play these as a complement or substitute for TTS."
+        }
+      }
+    },
+
+    "sovereignty": {
+      "type": "object",
+      "required": ["license"],
+      "additionalProperties": false,
+      "description": "Data sovereignty and licensing. First-class because many language communities (e.g. Cherokee Nation per their Aug 2025 AI policy) require explicit governance for AI use of their language.",
+      "properties": {
+        "license": {
+          "type": "string",
+          "description": "SPDX identifier or custom string (e.g. 'MIT', 'CC-BY-NC-SA-3.0', 'community-controlled')."
+        },
+        "attribution": {
+          "type": "string",
+          "description": "Text/URL that must accompany surfaced content. Shown in UI."
+        },
+        "contact": {
+          "type": "string",
+          "description": "Point of contact (email, URL) for permission requests, corrections, or community questions."
+        },
+        "restrictions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form tags (e.g. 'non-commercial', 'no-redistribution', 'attribution-required')."
+        },
+        "communityPartnership": {
+          "type": "string",
+          "description": "Statement of partnership status with the language community. Required when status is endangered/dormant/reconstructed and use is meant for public deployment."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "DictionaryEntry": {
+      "type": "object",
+      "required": ["word", "meaning"],
+      "additionalProperties": false,
+      "description": "A single dictionary entry. Polysynthetic languages should use morphology.segments to expose composition.",
+      "properties": {
+        "word": {
+          "type": "string",
+          "description": "Headword in the language's primary script."
+        },
+        "translit": {
+          "type": ["string", "null"],
+          "description": "Romanization, if the script is non-Latin and a transliteration scheme is in use."
+        },
+        "ipa": {
+          "type": "string",
+          "description": "International Phonetic Alphabet transcription."
+        },
+        "meaning": {
+          "type": "string",
+          "description": "English gloss. Keep terse; use 'examples' for context."
+        },
+        "partOfSpeech": {
+          "type": "string",
+          "description": "POS tag, free-form (e.g. 'noun', 'verb (animate intransitive)', 'greeting')."
+        },
+        "morphology": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Internal structure of the word. Critical for polysynthetic languages.",
+          "properties": {
+            "segments": {
+              "type": "array",
+              "description": "Morpheme-by-morpheme breakdown following Leipzig-style glossing.",
+              "items": {
+                "type": "object",
+                "required": ["form", "gloss"],
+                "additionalProperties": false,
+                "properties": {
+                  "form": { "type": "string", "description": "The morpheme as it appears in the word." },
+                  "gloss": { "type": "string", "description": "Grammatical/semantic gloss (e.g. 'PST-1SG-see-3SG.OBJ')." }
+                }
+              }
+            }
+          }
+        },
+        "examples": {
+          "type": "array",
+          "description": "Usage examples. Each entry has a 'target' (the language) and 'english' translation.",
+          "items": {
+            "type": "object",
+            "required": ["target", "english"],
+            "additionalProperties": false,
+            "properties": {
+              "target": { "type": "string" },
+              "english": { "type": "string" }
+            }
+          }
+        },
+        "dialect": {
+          "type": "string",
+          "description": "Dialect this form belongs to, when packs span multiple varieties."
+        },
+        "audioUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to a recorded pronunciation. Pack authors should prefer URLs hosted by the community/source rather than self-hosting."
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where this entry came from. Especially important for endangered-language ethics.",
+          "properties": {
+            "source": { "type": "string", "description": "Citable source (dictionary name, contributor, recording project)." },
+            "url": { "type": "string", "format": "uri" },
+            "contributor": { "type": "string" },
+            "date": { "type": "string", "description": "ISO 8601 date if known." },
+            "verified": { "type": "boolean", "description": "Whether the entry has been confirmed by a fluent speaker." }
+          }
+        }
+      }
+    }
+  }
+}
