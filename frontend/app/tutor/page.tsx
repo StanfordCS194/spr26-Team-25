@@ -103,6 +103,18 @@ export default function TutorSelectPage() {
               Learn color words in Classical Nahuatl — speak with Citlali in English
             </p>
           </button>
+          {/* quechua dictionary */}
+          <button
+            onClick={() => router.push('/tutor/quechua/dictionary')}
+            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"
+          >
+            <p className="text-white text-lg font-medium group-hover:text-amber-300 transition-colors">
+              🏔️ Quechua Dictionary
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Browse 3,998 words from Classical Quechua — the language of the Incas
+            </p>
+          </button>
           {/* dictionary — search any ancient or modern greek word */}
           <button
             onClick={() => router.push('/dictionary')}

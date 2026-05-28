@@ -76,91 +76,6 @@ class GoogleTTS(agents_tts.TTS):
 
 
 class _GoogleTTSStream(agents_tts.ChunkedStream):
-    def __init__(self, *, tts, input_text, conn_options, caption_event=None):
-        super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
-        self._caption_event = caption_event
-
-    async def _run(self, output_emitter: agents_tts.AudioEmitter) -> None:
-        # wait for the caption to be published before starting audio synthesis
-        # this ensures the subtitle appears before the voice starts speaking
-        if self._caption_event is not None:
-            try:
-                # espera hasta 3 segundos a que EN: publique el caption
-                # si no llega (pipeline secuencial de v1.5.7), procede igual
-                await asyncio.wait_for(self._caption_event.wait(), timeout=3.0)
-            except asyncio.TimeoutError:
-                logger.warning("caption event timeout — playing audio without EN:")
-            else: 
-                # caption was published — wait for frontend to receive and render it
-                # before Irini starts speaking, so the student can read first
-                await asyncio.sleep(0.8)
-        # if self._caption_event is not None:
-        #     await self._caption_event.wait()
-
-        # runs the synchronous Google TTS call on a background thread so it
-        # does not block the async event loop while waiting for Google's response
-        tts: GoogleTTS = self._tts
-        # shortcut to the texttospeech module stored on the parent
-        texttospeech = tts._texttospeech
-
-        # find any text in quotes and add a 350ms pause after it so phonetic sounds like "αα", "βε" and feel natural
-        ssml_body = re.sub(r'"([^"]+)"', r'"\1"<break time="350ms"/>', self._input_text)
-        # wrap the text in SSML <speak> tags so Google processes the <break> pauses
-        synthesis_input = texttospeech.SynthesisInput(ssml=f"<speak>{ssml_body}</speak>")
-
-        # run the blocking Google API call in a thread pool so the event loop stays free
-        response = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: tts._client.synthesize_speech(
-                input=synthesis_input,
-                voice=texttospeech.VoiceSelectionParams(
-                    # lnguage of the voice (e.g. "el-GR" for Greek)
-                    language_code=tts._language_code,
-                    # specific voice model (e.g. Greek female Wavenet)
-                    name=tts._voice_name,
-                ),
-                audio_config=texttospeech.AudioConfig(
-                    # raw uncompressed audio, bestquality for real-time playback
-                    audio_encoding=texttospeech.AudioEncoding.LINEAR16,
-                    # must match the sample_rate as declared in GoogleTTS.__init__
-                    sample_rate_hertz=tts._sample_rate,
-                    #speaking speed. differs per mode (0.82 for Greek, 0.95 for English).
-                    speaking_rate=tts._speaking_rate,  # different speaking rate for different modes
-                ),
-            ),
-        )
-
-        # initialize tells the emitter the format, then push sends the audio bytes
-        # declare the audio format to LiveKit before pushing any bytes
-        output_emitter.initialize(
-            # unique ID so LiveKit can trace this request in its logs
-            request_id=str(uuid.uuid4()),
-            sample_rate=tts._sample_rate,
-            num_channels=1,
-            mime_type="audio/wav",
-        )
-        # send the raw audio bytes to LiveKit to play to the student
-        output_emitter.push(response.audio_content)
-
-
-def _has_greek(text: str) -> bool:
-    # returns True if the text contains any Greek Unicode characters
-    # used to detect whether a sentence from the LLM is Greek or English
-    # livekit-agents splits LLM output into sentences before calling synthesize,
-    # so EN: translation sentences arrive without their tag — we detect them this way
-    return any('\u0370' <= c <= '\u03FF' or '\u1F00' <= c <= '\u1FFF' for c in text)
-
-
-# CaptionisingGoogleTTS wraps GoogleTTS to intercept the LLM text before synthesis.
-# In livekit-agents v1.5.x, before_tts_cb was removed from AgentSession and Agent,
-# so we handle the interception inside the TTS class itself.
-# Every time livekit-agents calls synthesize(), this class:
-#   1. parses the GR:/EN: format from the LLM response
-#   2. skips synthesis entirely if the sentence has no Greek characters
-#   3. fires off the caption data to the frontend via the LiveKit data channel
-#   4. passes only the Greek text down to _GoogleTTSStream so the voice stays in Greek
-
-class _GoogleTTSStream(agents_tts.ChunkedStream):
     def __init__(self, *, tts, input_text, conn_options):
         super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
 
@@ -370,24 +285,21 @@ class NahuatlTTS(GoogleTTS):
         nahuatl_word, speech = _parse_nahuatl_response(text)
 
         # only publish a caption if this chunk explicitly started with NAHUATL:
-        # overflow sentences that arrive without the tag are spoken but don't
-        # create a caption, same pattern as CaptionisingGoogleTTS with GR:
         if text.strip().startswith("NAHUATL:") and speech:
             # new word arrived so save it so overflow chunks below can attach to it
             self._pending_nahuatl_word = nahuatl_word
             # calculate how long to show the caption (minimum 4 seconds, 450ms per word)
             word_count = len(speech.split())
             display_ms = max(4000, int(word_count * 450))
-            # fire off the caption without waiting, the audio can start immediately 
+            # send the English speech as the caption
             asyncio.ensure_future(self._send_caption(nahuatl_word, speech, display_ms))
         elif self._pending_nahuatl_word and speech:
-            # LiveKit's sentence splitter broke the response into multiple chunks,
-            # reuse the saved Nahuatl word so the cation stays attached to the right word 
+            # LiveKit's sentence splitter broke the response into multiple chunks
             word_count = len(speech.split())
             display_ms = max(4000, int(word_count * 450))
             asyncio.ensure_future(self._send_caption(self._pending_nahuatl_word, speech, display_ms))
 
-        # speak only the English translation - the Nahuatl word is display-only in the caption
+        # speak the English explanation with Spanish-accented voice
         # fall back to a silent space if speech is empty to avoid crashing the TTS
         return _GoogleTTSStream(tts=self, input_text=speech if speech else " ", conn_options=conn_options)
 
@@ -470,26 +382,23 @@ def parse_response(text: str) -> tuple[str, str]:
     return greek, english
 
 def _parse_nahuatl_response(text: str) -> tuple[str, str]:
-    # splits the LLM response into the nahuatl word and the english speech.
+    # splits the LLM response into the nahuatl word and English speech.
     # the LLM always responds in this format:
     #   NAHUATL: chichiltic
-    #   SPEECH: The Nahuatl word for red is "chichiltic"...
+    #   SPEECH: "Chichiltic" — the ancient Aztecs used this word...
     # if the format is missing, falls back to treating the whole text as speech
     # so the agent still says something instead of going silent
-    # initialize both parts as empty strings
     nahuatl_word = ""
     speech = ""
     # capture everything after NAHUATL: up until SPEECH: or end of string
     n_match = re.search(r'NAHUATL:\s*(.+?)(?:\nSPEECH:|$)', text, re.DOTALL)
     # capture everything after SPEECH: until end of string
-    s_match = re.search(r'SPEECH:\s*(.+?)$', text, re.DOTALL)
-    # extract the nahuatl word from the regex match if found
+    s_match = re.search(r'SPEECH:\s*(.+)', text, re.DOTALL)
     if n_match:
         nahuatl_word = n_match.group(1).strip()
-    # extract the english speech from the regex match if found
     if s_match:
         speech = s_match.group(1).strip()
-    # if no SPEECH: tag was found and this isn't a standalone NAHUATL: chunk, treat the whole text as speech 
+    # if no SPEECH: tag was found and this isn't a standalone NAHUATL: chunk, treat the whole text as speech
     if not speech and not text.strip().startswith("NAHUATL:"):
         speech = text.strip()
     return nahuatl_word, speech
@@ -604,20 +513,23 @@ queniuhcatic: what color is it? (/keniuhkatik/)
 
 RESPONSE FORMAT — every single response MUST use this exact format, no exceptions:
 NAHUATL: [the nahuatl word you are teaching]
-SPEECH: [one sentence of natural English]
+SPEECH: ["word" — one sentence in English, saying the Nahuatl word first then explaining it]
 
 Example:
 NAHUATL: chichiltic
-SPEECH: The Nahuatl word for red is "chichiltic" — the ancient Aztecs used it to describe the deep red of blood, ripe tomatoes, and precious dyes.
+SPEECH: "Chichiltic" — the ancient Aztecs used this word to describe the deep red of blood and ripe tomatoes.
 
 RULES:
 - ALWAYS use NAHUATL:/SPEECH: format — every response, no exceptions
-- ONE sentence only in SPEECH — the system breaks with more than one
+- ONE sentence only in SPEECH — the system breaks with more
+- Always say the Nahuatl word first at the start of SPEECH, then explain it in English
 - Start with the basic colors first: red, yellow, black, white, green, blue
 - Be conversational: after introducing a word, ask the student to repeat it or quiz them
 - Warm reactions to student answers: "Excellent!", "Perfect!", "Almost — try once more!"
 - Never use markdown or bullet points inside SPEECH
 - If the student asks about a specific color, teach that word next
+- For your very first response, introduce yourself briefly in SPEECH and teach the first color word — never use a Nahuatl greeting word in the NAHUATL: field
+
 """
 
 # registers this function as the handler that runs when LiveKit assigns a session to the "eirini agent"
@@ -650,11 +562,11 @@ async def run_eirini(ctx: JobContext):
         # TTS is created here (not at module level) because it needs ctx.room to publish captions
         tts = NahuatlTTS(
             room = ctx.room,
-            # English female Wavenet voice for Citlali
-            voice_name="en-US-Wavenet-F",
-            language_code="en-US",
+            # Spanish. closer phonetically to Nahuatl
+            voice_name="es-US-Standard-A",
+            language_code="es-US",
             # slightly faster than Greek since English is easier to follow
-            speaking_rate=0.95, 
+            speaking_rate=0.90, 
         ) if is_nahuatl else CaptionisingGoogleTTS(
             room=ctx.room,
             # Greek female Wavenet voice for Irini
