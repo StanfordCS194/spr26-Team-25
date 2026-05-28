@@ -115,7 +115,19 @@ export default function TutorSelectPage() {
               Browse 3,998 words from Classical Quechua — the language of the Incas
             </p>
           </button>
-          {/* dictionary — search any ancient or modern greek word */}
+          {/* quechua voice tutor. free conversation with Ñusta in Quechua with English subtitles */}
+          <button
+            onClick={() => router.push('/tutor/quechua')}
+            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"
+          >
+            <p className="text-white text-lg font-medium group-hover:text-amber-300 transition-colors">
+               🌄 Speak with Ñusta
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Free conversation in Quechua — the language of the Incas, with English subtitles
+            </p>
+          </button>
+          {/* dictionary. search any ancient or modern greek word */}
           <button
             onClick={() => router.push('/dictionary')}
             className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"

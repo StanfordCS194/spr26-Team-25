@@ -324,6 +324,128 @@ class NahuatlTTS(GoogleTTS):
             topic="captions",
         )
 
+# QuechuaTTS works the same as CaptionisingGoogleTTS but uses QU:/EN: tags
+# and publishes "quechua" + "english" fields to the frontend.
+# Since Quechua uses Latin script (not Greek characters), we use a self._in_quechua
+# flag instead of _has_greek() to track which sentences to speak aloud.
+class QuechuaTTS(GoogleTTS):
+
+    def __init__(self, room: rtc.Room, **kwargs):
+        super().__init__(**kwargs)
+        self._room = room
+        self._quechua_buffer: str = ""
+        self._english_buffer: str = ""
+        self._in_english: bool = False
+        # True between QU: and EN: so continuation sentences are spoken
+        self._in_quechua: bool = False
+        self._caption_task: asyncio.Task | None = None
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
+        logger.info(f"[Quechua] synthesize received: {repr(text)}")
+        quechua, english = _parse_quechua_response(text)
+
+        if text.strip().startswith("QU:"):
+            # new response — reset all buffers and start accumulating Quechua
+            self._quechua_buffer = quechua
+            self._english_buffer = ""
+            self._in_english = False
+            self._in_quechua = True
+            if english:
+                # QU: and EN: arrived together in one chunk
+                self._english_buffer = english
+                self._in_english = True
+                self._in_quechua = False
+                self._schedule_caption()
+            else:
+                # publish Quechua-only caption immediately so subtitle shows before audio
+                asyncio.ensure_future(self._send_partial_caption(quechua))
+        elif text.strip().startswith("EN:"):
+            # English translation arrived — stop speaking, schedule full caption
+            self._english_buffer = english
+            self._in_english = True
+            self._in_quechua = False
+            if self._quechua_buffer:
+                self._schedule_caption()
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._in_english:
+            # continuation English sentence. accumulate and reschedule
+            self._english_buffer += " " + text.strip()
+            self._schedule_caption()
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._in_quechua and quechua:
+            # continuation Quechua sentence. accumulate and speak
+            self._quechua_buffer += " " + quechua
+            if english:
+                self._english_buffer = english
+                self._in_english = True
+                self._in_quechua = False
+                self._schedule_caption()
+
+        # speak the Quechua text if we're in Quechua mode, otherwise stay silent
+        if not quechua or not self._in_quechua:
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        return _GoogleTTSStream(tts=self, input_text=quechua, conn_options=conn_options)
+
+    def _schedule_caption(self) -> None:
+        # Cancel any in-flight caption task from the previous sentence —
+        # we don't want a stale caption to fire after the new one is already showing.
+        if self._caption_task and not self._caption_task.done():
+            self._caption_task.cancel()
+
+        # Give slower readers more time: 500 ms per word, minimum 4 seconds.
+        word_count = len(self._quechua_buffer.split())
+        display_ms = max(4000, int(word_count * 500))
+
+        # Fire the full (Quechua + English) caption as a background task.
+        # We don't await it here so synthesize() can keep streaming audio
+        # while the caption is being assembled and published.
+        self._caption_task = asyncio.ensure_future(
+            self._send_caption(self._quechua_buffer, display_ms)
+        )
+
+    async def _send_partial_caption(self, quechua: str) -> None:
+        """Publish Quechua-only caption immediately so subtitle appears before EN: arrives."""
+        try:
+            # Brief yield so the event loop can flush the audio chunk first —
+            # subtitle and audio should feel simultaneous, not subtitle-first.
+            await asyncio.sleep(0.1)
+
+            word_count = len(quechua.split())
+            display_ms = max(4000, int(word_count * 500))
+
+            # english is empty string — frontend should show a loading state or
+            # just the Quechua line until the full caption arrives.
+            caption_data = json.dumps({
+                "quechua": quechua,
+                "english": "",
+                "display_ms": display_ms,
+            }).encode()
+            await self._room.local_participant.publish_data(caption_data, topic="captions")
+        except Exception as e:
+            logger.error(f"[Quechua] Error publishing partial caption: {e}")
+
+    async def _send_caption(self, quechua: str, display_ms: int) -> None:
+        try:
+            # Wait long enough for EN: to finish accumulating in _english_buffer
+            # before we snapshot it. 350 ms is generous for typical sentence lengths.
+            await asyncio.sleep(0.35)
+
+            # Strip any leftover QU:/EN: tag fragments that bled into the buffer —
+            # the frontend should only ever receive clean display text.
+            clean_english = re.sub(r'\s*(QU:|EN:).*$', '', self._english_buffer, flags=re.DOTALL).strip()
+
+            caption_data = json.dumps({
+                "quechua": quechua,
+                "english": clean_english,
+                "display_ms": display_ms,
+            }).encode()
+            await self._room.local_participant.publish_data(caption_data, topic="captions")
+        except asyncio.CancelledError:
+            # _schedule_caption cancelled us because a new sentence arrived —
+            # silently discard so the newer caption wins.
+            pass
+
+
 # Claude always responds in the format: GR: [greek text] EN: [english translation]
 # CaptionisingGoogleTTS strips the format before sending to TTS
 # and sends both parts to the frontend as captions via the data channel.
@@ -402,6 +524,21 @@ def _parse_nahuatl_response(text: str) -> tuple[str, str]:
     if not speech and not text.strip().startswith("NAHUATL:"):
         speech = text.strip()
     return nahuatl_word, speech
+
+def _parse_quechua_response(text: str) -> tuple[str, str]:
+    # same pattern as parse_response but uses QU:/EN: tags instead of GR:/EN:
+    quechua = ""
+    english = ""
+    qu_match = re.search(r'QU:\s*(.+?)(?:\nEN:|$)', text, re.DOTALL)
+    en_match = re.search(r'(?:\n|^)EN:\s*(.+?)$', text, re.DOTALL)
+    if qu_match:
+        quechua = qu_match.group(1).strip()
+    if en_match:
+        english = en_match.group(1).strip()
+    # fallback: treat text as quechua if no QU: tag and not starting with EN:
+    if not quechua and not text.strip().startswith("EN:"):
+        quechua = re.split(r'\nEN:', text)[0].strip()
+    return quechua, english
 
 LESSON_SYSTEM_PROMPT = """
 You are Ειρήνη (Irini), an expert Ancient Greek teacher conducting a structured lesson.
@@ -532,48 +669,93 @@ RULES:
 
 """
 
-# registers this function as the handler that runs when LiveKit assigns a session to the "eirini agent"
+QUECHUA_SYSTEM_PROMPT = """
+You are Ñusta, a warm and knowledgeable tutor of Ayacucho-Chanka Quechua —
+the language of the ancient Inca civilization. You teach Quechua through
+natural, encouraging conversation.
+
+You understand English from your students, but you ALWAYS respond in Quechua only.
+Your students will read English subtitles separately — never switch to English.
+
+Keep sentences short and clear. Use common, high-frequency words.
+Be encouraging and patient. Gently correct mistakes by restating the correct form.
+
+RESPONSE FORMAT — every response MUST use this exact format, no exceptions:
+QU: [your response in Quechua]
+EN: [English translation of exactly what you said in Quechua]
+
+Example:
+QU: Allillanchu! Imatam sutikiyki?
+EN: Hello! What is your name?
+
+RULES:
+- Always use a single QU:/EN: pair — all sentences in one QU: block, all in one EN: block
+- Keep responses to 2-3 sentences maximum
+- Never use markdown, bullet points, or symbols inside QU: or EN:
+- Never switch to English even if the student speaks English to you
+- MICROPHONE LIMITATION: The student's microphone transcribes English reliably.
+  Never ask the student to say anything in Quechua out loud.
+"""
+
+# registers this function as the handler that runs when LiveKit assigns a session to the "eirini" agent
 @server.rtc_session(agent_name="eirini")
 async def run_eirini(ctx: JobContext):
-    # parse the metadata strign sent by the frontend. the format is "mode|user_id", e.g. "nahuatl|abc123"
+    # parse the metadata string sent by the frontend. the format is "mode|user_id", e.g. "nahuatl|abc123"
     # split on the first "|" only in case the user_id itself contains "|"
-    metadata_parts = (ctx.job.metadata or "").split("|", 1) 
-    # first part is the mode: "conversation", "lesson", or "nahuatl"
-    mode = metadata_parts[0]                                              # "conversation", "lesson", or "nahuatl"
+    metadata_parts = (ctx.job.metadata or "").split("|", 1)
+    # first part is the mode: "conversation", "lesson", "nahuatl", or "quechua"
+    mode = metadata_parts[0]
     # second part is the Supabase user_id. defaults to "" if not present
-    session_user_id = metadata_parts[1] if len(metadata_parts) > 1 else ""  # Supabase user_id, or "" if missing
+    session_user_id = metadata_parts[1] if len(metadata_parts) > 1 else ""
 
     # boolean flags to avoid repeating string comparisons throughout the function
     is_nahuatl = mode == "nahuatl"
-    is_lesson = mode == "lesson"
-    # is_conversation is anything that's neither nahuatl nor lesson
+    is_lesson   = mode == "lesson"
+    is_quechua  = mode == "quechua"
+    # is_conversation is anything that is neither nahuatl, quechua, nor lesson
 
     # pick the system prompt that matches the current mode
-    prompt = NAHUATL_SYSTEM_PROMPT if is_nahuatl else (LESSON_SYSTEM_PROMPT if is_lesson else SYSTEM_PROMPT)
-    # log which mode this session is running in for debugging
-    logger.info(f"Session starting — mode: {'nahuatl' if is_nahuatl else 'lesson' if is_lesson else 'conversation'}")
+    prompt = (NAHUATL_SYSTEM_PROMPT if is_nahuatl else
+              QUECHUA_SYSTEM_PROMPT  if is_quechua  else
+              LESSON_SYSTEM_PROMPT   if is_lesson   else
+              SYSTEM_PROMPT)
 
-    # wiire together the three stages of the voice pipeline: Speech to Text (STT) -> LLM -> Text to Speech (TTS)
+    # log which mode this session is running in for debugging
+    logger.info(f"Session starting — mode: {mode}")
+
+    # wire together the three stages of the voice pipeline: STT -> LLM -> TTS
     session = AgentSession(
         # Deepgram nova-3 with multi-language detection. handles both Greek and English student input
         stt=deepgram.STT(model="nova-3", language="multi"),
         # Claude Haiku, fastest Anthropic model, chosen to minimize voice response latency
         llm=anthropic.LLM(model="claude-haiku-4-5-20251001"),
-        # TTS is created here (not at module level) because it needs ctx.room to publish captions
-        tts = NahuatlTTS(
-            room = ctx.room,
-            # Spanish. closer phonetically to Nahuatl
-            voice_name="es-US-Standard-A",
-            language_code="es-US",
-            # slightly faster than Greek since English is easier to follow
-            speaking_rate=0.90, 
-        ) if is_nahuatl else CaptionisingGoogleTTS(
-            room=ctx.room,
-            # Greek female Wavenet voice for Irini
-            voice_name="el-GR-Wavenet-A",
-            language_code="el-GR",  
-            # slower than Englihs so students can follow the Greek clearly
-            speaking_rate = 0.82,
+        # TTS is created here (not at module level) because it needs ctx.room to publish captions.
+        # Quechua uses es-US-Standard-A (Spanish phonetics approximate Quechua sounds) at a slower
+        # rate since learners need more time to process each syllable.
+        tts=(
+            QuechuaTTS(
+                room=ctx.room,
+                voice_name="es-US-Standard-A",
+                language_code="es-US",
+                # slightly slower than Nahuatl — Quechua consonant clusters are harder to follow
+                speaking_rate=0.85,
+            ) if is_quechua else
+            NahuatlTTS(
+                room=ctx.room,
+                # Spanish phonetics are closer to Nahuatl than any other available voice
+                voice_name="es-US-Standard-A",
+                language_code="es-US",
+                # slightly faster than Greek since English subtitles are easier to follow
+                speaking_rate=0.90,
+            ) if is_nahuatl else
+            CaptionisingGoogleTTS(
+                room=ctx.room,
+                # Greek female Wavenet voice for Eirini
+                voice_name="el-GR-Wavenet-A",
+                language_code="el-GR",
+                # slower than English so students can follow the Greek clearly
+                speaking_rate=0.82,
+            )
         ),
     )
 
@@ -588,32 +770,26 @@ async def run_eirini(ctx: JobContext):
 
     # start the agent session. connects the pipeline to the LiveKit room
     await session.start(
-        # pass the system prompt that defines Irini or Citlali's personality and rules 
-        agent=agents.Agent(
-            instructions=prompt,
-        ),
+        # pass the system prompt that defines Eirini / Citlali / Ñusta's personality and rules
+        agent=agents.Agent(instructions=prompt),
         room=ctx.room,
     )
 
-    
-
     # only in lesson mode. triggers the opening welcome through the normal
-    # LLM pipeline so captionss work exactly like conversation mode. 
+    # LLM pipeline so captions work exactly like conversation mode.
     if is_lesson:
-        # lock prevents overlapping generate_reply calls if student presses Continue multiple times quickly 
+        # lock prevents overlapping generate_reply calls if the student presses Continue multiple times quickly
         _reply_lock = asyncio.Lock()
 
         # listen for "student_ready" messages from the frontend.
         # when the student presses Space or the Continue button, the frontend
-        # publishes this message and we trigger Irini's next response.
+        # publishes this message and we trigger Eirini's next response.
         @ctx.room.on("data_received")
         def on_student_data(data_packet):
             try:
                 # decode the raw bytes into a JSON object
                 payload = json.loads(bytes(data_packet.data).decode())
                 if payload.get("type") == "student_ready":
-                    # Advance the lesson. Lock prevents overlapping generate_reply calls
-                    # if the student presses Continue multiple times quickly.
                     async def do_reply():
                         async with _reply_lock:
                             # acquire the lock so only one reply runs at a time
@@ -625,7 +801,7 @@ async def run_eirini(ctx: JobContext):
                                     "do NOT re-welcome, do NOT repeat anything already said."
                                 )
                             )
-                    # schedule do_reply as a background task without blocking the event handler 
+                    # schedule do_reply as a background task without blocking the event handler
                     asyncio.ensure_future(do_reply())
             except Exception as e:
                 # catch any malformed messages so they don't crash the agent
@@ -635,13 +811,21 @@ async def run_eirini(ctx: JobContext):
         # await session.generate_reply(
         #     instructions="Begin the lesson now with your opening welcome."
         # )
-    # trigger an opening greeting so the student knows they can ask about nahuatl colors
+
+    # trigger an opening greeting so the student knows they can ask about Nahuatl colors
     if is_nahuatl:
         await session.generate_reply(
             instructions="Greet the student warmly in one sentence and tell them they can ask about any color in Nahuatl."
         )
+
+    # trigger an opening greeting for Quechua — Ñusta introduces herself and invites conversation
+    if is_quechua:
+        await session.generate_reply(
+            instructions="Greet the student warmly in Quechua and invite them to practice conversation."
+        )
+
     # trigger an opening greeting for free conversation mode so the student doesn't have to speak first
-    if not is_lesson and not is_nahuatl:
+    if not is_lesson and not is_nahuatl and not is_quechua:
         await session.generate_reply(
             instructions=(
                 "Greet the student warmly and ask what they want to learn today about Ancient Greek. "
