@@ -127,6 +127,18 @@ export default function TutorSelectPage() {
               Free conversation in Quechua — the language of the Incas, with English subtitles
             </p>
           </button>
+          {/* old norse voice tutor */}
+          <button
+            onClick={() => router.push('/tutor/old-norse')}
+            className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-left transition-all duration-200 group"
+          >
+            <p className="text-white text-lg font-medium group-hover:text-amber-300 transition-colors">
+              ⚔️ Speak with Sigríðr
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Free conversation in Old Norse — the language of the Vikings, with English subtitles
+            </p>
+          </button>
           {/* dictionary. search any ancient or modern greek word */}
           <button
             onClick={() => router.push('/dictionary')}

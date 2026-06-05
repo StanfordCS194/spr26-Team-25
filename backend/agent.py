@@ -445,6 +445,122 @@ class QuechuaTTS(GoogleTTS):
             # silently discard so the newer caption wins.
             pass
 
+# OldNorseTTS works the same as QuechuaTTS but uses ON:/EN: tags
+# and publishes "norse" + "english" fields to the frontend.
+# Since Old Norse uses Latin script (not Greek characters), we use a self._in_norse
+# flag instead of _has_greek() to track which sentences to speak aloud.
+class OldNorseTTS(GoogleTTS):
+
+    def __init__(self, room: rtc.Room, **kwargs):
+        # pass all GoogleTTS config (voice, language, rate) up to the parent
+        super().__init__(**kwargs)
+        # store the room so _send_caption can publish data to the frontend
+        self._room = room
+        # accumulates all Old Norse sentences in this response before publishing the caption
+        self._norse_buffer: str = ""
+        # accumulates all english sentences as they arrive after EN:
+        self._english_buffer: str = ""
+        # True after EN: arrives, so continuation english sentences are caught
+        self._in_english: bool = False
+        # True between ON: and EN: so continuation sentences are spoken
+        self._in_norse: bool = False
+        self._caption_task: asyncio.Task | None = None
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS) -> agents_tts.ChunkedStream:
+        # log every chunk that arrives so we can debug timing issues
+        logger.info(f"[OldNorse] synthesize received: {repr(text)}")
+        # split the LLM response into the Old Norse and English parts
+        norse, english = _parse_old_norse_response(text)
+
+        if text.strip().startswith("ON:"):
+            # new response, reset all buffers and start accumulating Old Norse
+            self._norse_buffer = norse
+            self._english_buffer = ""
+            self._in_english = False
+            self._in_norse = True
+            if english:
+                # ON: and EN: arrived together in one chunk
+                self._english_buffer = english
+                self._in_english = True
+                self._in_norse = False
+                self._schedule_caption()
+            else:
+                # publish Old Norse only caption immediately so subtitle shows before audio
+                asyncio.ensure_future(self._send_partial_caption(norse))
+        elif text.strip().startswith("EN:"):
+            # English translation arrived, stop speaking and schedule full caption
+            self._english_buffer = english
+            self._in_english = True
+            self._in_norse = False
+            if self._norse_buffer:
+                self._schedule_caption()
+            # return silence so the voice does not read out the EN: line
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._in_english:
+            # continuation English sentence, accumulate and reschedule
+            self._english_buffer += " " + text.strip()
+            self._schedule_caption()
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        elif self._in_norse and norse:
+            # continuation Old Norse sentence, accumulate and speak
+            self._norse_buffer += " " + norse
+            if english:
+                # EN: arrived in the same chunk as a continuation Norse sentence
+                self._english_buffer = english
+                self._in_english = True
+                self._in_norse = False
+                self._schedule_caption()
+
+        # stay silent if there is no Norse text or we are past the ON: block
+        if not norse or not self._in_norse:
+            return _GoogleTTSStream(tts=self, input_text=" ", conn_options=conn_options)
+        return _GoogleTTSStream(tts=self, input_text=norse, conn_options=conn_options)
+
+    def _schedule_caption(self) -> None:
+        # cancel any in-flight caption task so the newest english chunk always wins
+        if self._caption_task and not self._caption_task.done():
+            self._caption_task.cancel()
+        # give slower readers more time: 500ms per word, minimum 4 seconds
+        word_count = len(self._norse_buffer.split())
+        display_ms = max(4000, int(word_count * 500))
+        # fire the full caption as a background task so synthesize() keeps streaming audio
+        self._caption_task = asyncio.ensure_future(
+            self._send_caption(self._norse_buffer, display_ms)
+        )
+
+    async def _send_partial_caption(self, norse: str) -> None:
+        # publish Old Norse only caption immediately so subtitle appears before EN: arrives
+        try:
+            # brief yield so the event loop can flush the audio chunk first
+            await asyncio.sleep(0.1)
+            word_count = len(norse.split())
+            display_ms = max(4000, int(word_count * 500))
+            # english is empty string, frontend shows just the Norse line until full caption arrives
+            caption_data = json.dumps({
+                "norse": norse,
+                "english": "",
+                "display_ms": display_ms,
+            }).encode()
+            await self._room.local_participant.publish_data(caption_data, topic="captions")
+        except Exception as e:
+            logger.error(f"[OldNorse] Error publishing partial caption: {e}")
+
+    async def _send_caption(self, norse: str, display_ms: int) -> None:
+        try:
+            # wait long enough for EN: to finish accumulating in _english_buffer
+            await asyncio.sleep(0.35)
+            # strip any leftover ON:/EN: tag fragments that bled into the buffer
+            clean_english = re.sub(r'\s*(ON:|EN:).*$', '', self._english_buffer, flags=re.DOTALL).strip()
+            caption_data = json.dumps({
+                "norse": norse,
+                "english": clean_english,
+                "display_ms": display_ms,
+            }).encode()
+            await self._room.local_participant.publish_data(caption_data, topic="captions")
+        except asyncio.CancelledError:
+            # _schedule_caption cancelled us because a new sentence arrived, expected
+            pass
+
 
 # Claude always responds in the format: GR: [greek text] EN: [english translation]
 # CaptionisingGoogleTTS strips the format before sending to TTS
@@ -539,6 +655,27 @@ def _parse_quechua_response(text: str) -> tuple[str, str]:
     if not quechua and not text.strip().startswith("EN:"):
         quechua = re.split(r'\nEN:', text)[0].strip()
     return quechua, english
+
+def _parse_old_norse_response(text: str) -> tuple[str, str]:
+    # splits the LLM response into the Old Norse text and English translation.
+    # the LLM always responds in this format:
+    #   ON: Heill! Hvat heitir þú?
+    #   EN: Greetings! What is your name?
+    # if the format is missing, falls back to treating the whole text as Old Norse
+    norse = ""
+    english = ""
+    # capture everything after ON: up until EN: or end of string
+    on_match = re.search(r'ON:\s*(.+?)(?:\nEN:|$)', text, re.DOTALL)
+    # capture everything after EN: until end of string
+    en_match = re.search(r'(?:\n|^)EN:\s*(.+?)$', text, re.DOTALL)
+    if on_match:
+        norse = on_match.group(1).strip()
+    if en_match:
+        english = en_match.group(1).strip()
+    # fallback: treat text as Old Norse if no ON: tag and not starting with EN:
+    if not norse and not text.strip().startswith("EN:"):
+        norse = re.split(r'\nEN:', text)[0].strip()
+    return norse, english
 
 LESSON_SYSTEM_PROMPT = """
 You are Ειρήνη (Irini), an expert Ancient Greek teacher conducting a structured lesson.
@@ -697,6 +834,35 @@ RULES:
   Never ask the student to say anything in Quechua out loud.
 """
 
+OLD_NORSE_SYSTEM_PROMPT = """
+You are Sigríðr, a warm and knowledgeable tutor of Old Norse — the language
+of the Vikings and the Eddic sagas. You teach Old Norse through natural,
+encouraging conversation.
+
+You understand English from your students, but you ALWAYS respond in Old Norse only.
+Your students will read English subtitles separately — never switch to English.
+
+Keep sentences short and clear. Use common, high-frequency words.
+Be encouraging and patient. Gently correct mistakes by restating the correct form.
+
+RESPONSE FORMAT — every response MUST use this exact format, no exceptions:
+ON: [your response in Old Norse]
+EN: [English translation of exactly what you said in Old Norse]
+
+Example:
+ON: Heill! Hvat heitir þú?
+EN: Greetings! What is your name?
+
+RULES:
+- Always use a single ON:/EN: pair, all sentences in one ON: block, all in one EN: block
+- Keep responses to 2-3 sentences maximum
+- Never use markdown, bullet points, or symbols inside ON: or EN:
+- Never switch to English even if the student speaks English to you
+- Use authentic West Norse as found in the Eddic sagas and Heimskringla
+- MICROPHONE LIMITATION: The student's microphone transcribes English reliably.
+  Never ask the student to say anything in Old Norse out loud.
+"""
+
 # registers this function as the handler that runs when LiveKit assigns a session to the "eirini" agent
 @server.rtc_session(agent_name="eirini")
 async def run_eirini(ctx: JobContext):
@@ -709,15 +875,17 @@ async def run_eirini(ctx: JobContext):
     session_user_id = metadata_parts[1] if len(metadata_parts) > 1 else ""
 
     # boolean flags to avoid repeating string comparisons throughout the function
+    is_old_norse = mode == "old_norse"
     is_nahuatl = mode == "nahuatl"
     is_lesson   = mode == "lesson"
     is_quechua  = mode == "quechua"
     # is_conversation is anything that is neither nahuatl, quechua, nor lesson
 
     # pick the system prompt that matches the current mode
-    prompt = (NAHUATL_SYSTEM_PROMPT if is_nahuatl else
-              QUECHUA_SYSTEM_PROMPT  if is_quechua  else
-              LESSON_SYSTEM_PROMPT   if is_lesson   else
+    prompt = (NAHUATL_SYSTEM_PROMPT   if is_nahuatl   else
+              QUECHUA_SYSTEM_PROMPT    if is_quechua   else
+              OLD_NORSE_SYSTEM_PROMPT  if is_old_norse else
+              LESSON_SYSTEM_PROMPT     if is_lesson    else
               SYSTEM_PROMPT)
 
     # log which mode this session is running in for debugging
@@ -733,6 +901,15 @@ async def run_eirini(ctx: JobContext):
         # Quechua uses es-US-Standard-A (Spanish phonetics approximate Quechua sounds) at a slower
         # rate since learners need more time to process each syllable.
         tts=(
+            OldNorseTTS(
+                room=ctx.room,
+                # English voice since no Old Norse voice exists on Google TTS
+                # British English is the closest phonetically to Old Norse consonants
+                voice_name="en-GB-Wavenet-B",
+                language_code="en-GB",
+                # slightly slower than default so students can follow the unfamiliar sounds
+                speaking_rate=0.85,
+            ) if is_old_norse else
             QuechuaTTS(
                 room=ctx.room,
                 voice_name="es-US-Standard-A",
@@ -824,8 +1001,14 @@ async def run_eirini(ctx: JobContext):
             instructions="Greet the student warmly in Quechua and invite them to practice conversation."
         )
 
+    # trigger an opening greeting for Old Norse, Sigridr introduces herself and invites conversation
+    if is_old_norse:
+        await session.generate_reply(
+            instructions="Greet the student warmly in Old Norse and invite them to practice conversation."
+        )
+
     # trigger an opening greeting for free conversation mode so the student doesn't have to speak first
-    if not is_lesson and not is_nahuatl and not is_quechua:
+    if not is_lesson and not is_nahuatl and not is_quechua and not is_old_norse:
         await session.generate_reply(
             instructions=(
                 "Greet the student warmly and ask what they want to learn today about Ancient Greek. "
