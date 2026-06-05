@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo, useState, useCallback } from 'react';
+import { use, useMemo, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import vocabularyData from '../../old_norse_vocabulary.json';
 import examplesData from '../../old_norse_examples.json';
@@ -98,6 +98,24 @@ export default function OldNorseWordPage({ params }: { params: Promise<{ word: s
       })()
     );
   }, [entries, word]);
+
+  // AI-generated gloss for words with auto-extracted definitions
+  const [aiGloss, setAiGloss] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!entry) return;
+    // check if all definitions are auto-extracted and need an AI gloss
+    const needsGloss = entry.definitions.every(d => d.gloss.includes('auto-extracted'));
+    if (!needsGloss) return;
+    fetch(`${BACKEND_URL}/api/old-norse-word-info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: entry.lemma, info_type: 'gloss' }),
+    })
+      .then(r => r.json())
+      .then(data => setAiGloss(data.content?.trim() ?? null))
+      .catch(() => null);
+  }, [entry]);
 
   // corpus entries whose text contains the lemma, shown in the Related Words tab.
   // these are Zoega dictionary entries, not real sentences, so they are labelled
@@ -223,7 +241,13 @@ export default function OldNorseWordPage({ params }: { params: Promise<{ word: s
                 {entry.definitions.map((def, i) => (
                   <div key={i} className="flex gap-3">
                     <span className="text-white/30 text-sm">{i + 1}.</span>
-                    <span className="text-amber-300 text-sm">{def.gloss}</span>
+                    <span className="text-amber-300 text-sm">
+                      {def.gloss.includes('auto-extracted')
+                        ? aiGloss
+                          ? <>{aiGloss} <span className="text-white/20 text-xs border border-white/15 rounded px-1 ml-1">AI</span></>
+                          : 'loading...'
+                        : def.gloss}
+                    </span>
                   </div>
                 ))}
                 {/* additional gloss candidates from the Zoega corpus pipeline */}

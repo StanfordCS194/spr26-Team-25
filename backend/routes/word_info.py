@@ -280,6 +280,12 @@ OLD_NORSE_PROMPTS = {
         '}}\n\n'
         "Return ONLY the JSON object, no other text."
     ),
+    "gloss": (
+        "You are an Old Norse lexicographer.\n"
+        "Give a short English gloss (1 to 4 words) for the Old Norse word «{word}».\n"
+        "Return ONLY the gloss, no punctuation, no explanation.\n"
+        "Examples: day, to walk, strong, king of the gods"
+    ),
 }
 
 class OldNorseWordInfoRequest(BaseModel):
