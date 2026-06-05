@@ -209,3 +209,99 @@ async def word_info(req: WordInfoRequest):
         "info_type": req.info_type,
         "content": result.content[0].text.strip(),
     }
+
+# Prompts for Old Norse word information, same pattern as PROMPTS above
+OLD_NORSE_PROMPTS = {
+    "examples": (
+        "You are an expert in Old Norse language and the Eddic sagas.\n"
+        "Return exactly 4 examples of the Old Norse word «{word}» used in Old Norse texts.\n"
+        "Return ONLY a JSON array with this exact shape:\n"
+        "[\n"
+        '  {{\n'
+        '    "norse": "the Old Norse sentence or clause containing the word",\n'
+        '    "english": "English translation of the sentence",\n'
+        '    "source": "e.g. Prose Edda, Gylfaginning or Heimskringla, Ynglinga saga"\n'
+        '  }}\n'
+        "]\n"
+        "Use real or plausible Old Norse sentences in the style of the Eddic sagas. "
+        "Return ONLY the JSON array, no other text."
+    ),
+    "related": (
+        "You are an Old Norse lexicographer.\n"
+        "Return related words for the Old Norse word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "word_family": [\n'
+        '    {{"norse": "related word", "english": "short gloss", "note": "e.g. adjective form or compound"}}\n'
+        '  ],\n'
+        '  "semantic_field": [\n'
+        '    {{"norse": "related word", "english": "short gloss", "note": "brief note on how it differs"}}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Word family: derivatives and compounds from the same root. "
+        "Semantic field: conceptually related words with a note on how each differs. "
+        "Include 3 to 5 entries per section. Return ONLY the JSON object, no other text."
+    ),
+    "declension": (
+        "You are an Old Norse linguistics expert.\n"
+        "Analyze the word «{word}» and return a JSON object.\n\n"
+        "If it is a VERB, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "verb",\n'
+        '  "lemma": "infinitive form",\n'
+        '  "meaning": "to ...",\n'
+        '  "class": "strong class 1-7 or weak class 1-3",\n'
+        '  "indicative": {{\n'
+        '    "tenses": ["Present", "Past"],\n'
+        '    "rows": [\n'
+        '      {{"person": "1sg", "label": "ek", "forms": ["form", "form"]}},\n'
+        '      {{"person": "2sg", "label": "þú", "forms": ["form", "form"]}},\n'
+        '      {{"person": "3sg", "label": "hann", "forms": ["form", "form"]}},\n'
+        '      {{"person": "1pl", "label": "vér", "forms": ["form", "form"]}},\n'
+        '      {{"person": "2pl", "label": "þér", "forms": ["form", "form"]}},\n'
+        '      {{"person": "3pl", "label": "þeir", "forms": ["form", "form"]}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "If it is a NOUN, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "noun",\n'
+        '  "lemma": "nominative singular form",\n'
+        '  "meaning": "...",\n'
+        '  "gender": "masculine / feminine / neuter",\n'
+        '  "declension": {{\n'
+        '    "rows": [\n'
+        '      {{"case": "Nominative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Accusative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Dative",     "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Genitive",   "singular": "...", "plural": "..."}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "Return ONLY the JSON object, no other text."
+    ),
+}
+
+class OldNorseWordInfoRequest(BaseModel):
+    word: str
+    info_type: str  # "examples" | "related" | "declension"
+
+@router.post("/old-norse-word-info")
+async def old_norse_word_info(req: OldNorseWordInfoRequest):
+    # look up the prompt for the requested info type
+    prompt_template = OLD_NORSE_PROMPTS.get(req.info_type)
+    if not prompt_template:
+        return {"error": f"Unknown info_type: {req.info_type}"}
+
+    # fill in the word placeholder and call Claude Haiku
+    result = await _client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=800,
+        messages=[{"role": "user", "content": prompt_template.format(word=req.word)}],
+    )
+
+    return {
+        "word": req.word,
+        "info_type": req.info_type,
+        "content": result.content[0].text.strip(),
+    }

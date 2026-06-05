@@ -905,8 +905,12 @@ async def run_eirini(ctx: JobContext):
                 room=ctx.room,
                 # English voice since no Old Norse voice exists on Google TTS
                 # British English is the closest phonetically to Old Norse consonants
-                voice_name="en-GB-Wavenet-B",
-                language_code="en-GB",
+                # voice_name="en-GB-Wavenet-B",
+                # language_code="en-GB",
+
+                # try German man voice
+                voice_name="de-DE-Wavenet-B",
+                language_code="de-DE",
                 # slightly slower than default so students can follow the unfamiliar sounds
                 speaking_rate=0.85,
             ) if is_old_norse else
