@@ -808,9 +808,9 @@ async def run_eirini(ctx: JobContext):
                 logger.error(f"Error handling student data: {e}")
 
         # first message is now triggered by the frontend once the room is connected
-        # await session.generate_reply(
-        #     instructions="Begin the lesson now with your opening welcome."
-        # )
+        await session.generate_reply(
+            instructions="Begin the lesson now with your opening welcome."
+        )
 
     # trigger an opening greeting so the student knows they can ask about Nahuatl colors
     if is_nahuatl:

@@ -15,6 +15,7 @@ class GlossaryRequest(BaseModel):
 class WordInfoRequest(BaseModel):
     word: str        # The individual word the user clicked
     info_type: str   # "translation" | "morphology" | "examples" | "etymology"
+    
 
 # Prompts for each type of information the user can request.
 # {word} is a placeholder filled in at request time inside word_info().

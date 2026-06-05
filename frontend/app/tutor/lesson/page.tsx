@@ -269,11 +269,16 @@ function LessonContent({ keepCaptions }: { keepCaptions: boolean }) {
               key={letter.name}
               className="flex flex-col items-center justify-center bg-white/10 backdrop-blur-sm rounded-xl py-3 px-1 border border-white/10"
             >
-              {/* uppercase letter. large and amber so it stands out */}
-              <span className="text-amber-200 text-2xl font-serif leading-none">
-                {letter.upper}
-              </span>
-              {/* letter name. small so the grid stays compact */}
+              {/* uppercase and lowercase side by side */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-amber-200 text-2xl font-serif leading-none">
+                  {letter.upper}
+                </span>
+                <span className="text-amber-200/50 text-lg font-serif leading-none">
+                  {letter.lower}
+                </span>
+              </div>
+              {/* letter name */}
               <span className="text-white/50 text-xs mt-1">{letter.name}</span>
             </div>
           ))}

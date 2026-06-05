@@ -36,11 +36,38 @@ export default function QuechuaWordPage({ params }: { params: Promise<{ word: st
   const entries = (vocabularyData as any).entries as VocabEntry[];
   const examples = (examplesData as any).sentences as ParallelExample[];
 
-  // find the entry — try exact match first, then prefix match
+  const QUECHUA_SUFFIXES = [
+    'rqayku', 'rqanki', 'rqani', 'rqan',
+    'ykanki', 'ykani', 'ykaku', 'ykun',
+    'nayku', 'nanki', 'nani', 'chkan',
+    'saqku', 'sanki', 'sani', 'nqa',
+    'rqa', 'yku', 'nki', 'yki', 'ku',
+    'taq', 'pas', 'pis', 'chu', 'qa',
+    'mi', 'si', 'ña', 'ni', 'n', 'm', 's',
+  ];
+
   const entry = useMemo(() => {
-    return entries.find(e => e.lemma === word) ??
-           entries.find(e => e.lemma.startsWith(word)) ??
-           null;
+    const w = word.toLowerCase();
+    return (
+      // 1. exact match
+      entries.find(e => e.lemma.toLowerCase() === w) ??
+      // 2. word is an inflected form. starts with the lemma (kachani → kacha)
+      entries.find(e => w.startsWith(e.lemma.toLowerCase()) && e.lemma.length >= 3) ??
+      // 3. lemma starts with word (partial input)
+      entries.find(e => e.lemma.toLowerCase().startsWith(w)) ??
+      // 4. strip common Quechua suffixes and retry
+      (() => {
+        for (const suffix of QUECHUA_SUFFIXES) {
+          if (w.endsWith(suffix) && w.length - suffix.length >= 3) {
+            const stem = w.slice(0, w.length - suffix.length);
+            const hit = entries.find(e => e.lemma.toLowerCase() === stem) ??
+                        entries.find(e => e.lemma.toLowerCase().startsWith(stem));
+            if (hit) return hit;
+          }
+        }
+        return null;
+      })()
+    );
   }, [entries, word]);
 
   // get sentence examples from the parallel corpus using example_ids
