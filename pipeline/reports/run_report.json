@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-12",
+  "generated": "2026-05-27",
   "dialect": "ayacucho-chanka",
   "sources": {
     "parallel": "somosnlp-hackathon-2022/spanish-to-quechua",
@@ -48,21 +48,21 @@
       "noun": 3087
     },
     "semantic_field_distribution": {
-      "time": 1591,
-      "cosmology": 1575,
-      "kinship": 994,
-      "social": 988,
-      "location": 899,
-      "numbers": 696,
-      "cognition": 636,
-      "body": 457,
-      "agriculture": 438,
-      "possession": 411,
-      "communication": 341,
-      "emotions": 340,
-      "food": 250,
-      "motion": 207,
-      "nature": 188
+      "cosmology": 1629,
+      "time": 1618,
+      "kinship": 1051,
+      "social": 975,
+      "location": 881,
+      "numbers": 651,
+      "cognition": 650,
+      "agriculture": 447,
+      "body": 431,
+      "possession": 388,
+      "emotions": 316,
+      "communication": 305,
+      "food": 273,
+      "motion": 225,
+      "nature": 171
     },
     "top_50_lemmas": [
       {

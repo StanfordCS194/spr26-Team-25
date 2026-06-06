@@ -7,6 +7,77 @@ import { updateStreak } from '../../lib/streak';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
 
+// Each category groups the mode buttons for one language.
+// To add a new language or mode, just add an entry here — no JSX changes needed.
+const CATEGORIES = [
+  {
+    label: 'Ancient Greek',
+    flag: '🏛️',
+    modes: [
+      {
+        emoji: '📖',
+        title: 'Structured Lesson',
+        description: 'Learn the Ancient Greek alphabet step by step with Ειρήνη',
+        href: '/tutor/lesson/intro',
+      },
+      {
+        emoji: '🗣️',
+        title: 'Free Conversation',
+        description: 'Ask Ειρήνη anything — modern Greek, ancient Greek, philosophy, history',
+        href: '/tutor/conversation',
+      },
+      {
+        emoji: '📚',
+        title: 'Greek Dictionary',
+        description: 'Look up any Ancient or Modern Greek word — conjugations, examples, etymology',
+        href: '/dictionary',
+      },
+    ],
+  },
+  {
+    label: 'Quechua',
+    flag: '🏔️',
+    modes: [
+      {
+        emoji: '🌄',
+        title: 'Speak with Ñusta',
+        description: 'Free conversation in Quechua — the language of the Incas, with English subtitles',
+        href: '/tutor/quechua',
+      },
+      {
+        emoji: '🏔️',
+        title: 'Quechua Dictionary',
+        description: 'Browse 3,998 words from Classical Quechua — the language of the Incas',
+        href: '/tutor/quechua/dictionary',
+      },
+    ],
+  },
+  {
+    label: 'Nahuatl',
+    flag: '🌿',
+    modes: [
+      {
+        emoji: '🌿',
+        title: 'Nahuatl Colors',
+        description: 'Learn color words in Classical Nahuatl — speak with Citlali in English',
+        href: '/tutor/nahuatl',
+      },
+    ],
+  },
+  {
+    label: 'Old Norse',
+    flag: '⚔️',
+    modes: [
+      {
+        emoji: '⚔️',
+        title: 'Speak with Sigríðr',
+        description: 'Free conversation in Old Norse — the language of the Vikings, with English subtitles',
+        href: '/tutor/old-norse',
+      },
+    ],
+  },
+];
+
 export default function TutorSelectPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -232,6 +303,7 @@ export default function TutorSelectPage() {
           </div>
 
         </div>
+
       </div>
     </main>
   );

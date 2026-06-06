@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from routes.chat import router as chat_router
 from routes.livekit import router as livekit_router # generates LiveKit tokens for the voice tutor
+from routes.quechua_info import router as quechua_info_router
 from supabase import create_client
 import os
 
@@ -29,6 +30,9 @@ app.include_router(livekit_router, prefix="/api")
 
 # register word info routes defined in routes/word_info.py. 
 app.include_router(word_info_router, prefix="/api")
+
+# register word info routes defined in routes/quechua_info.py
+app.include_router(quechua_info_router, prefix="/api")
 
 # initializes the Supabase client using the environment variables stored in Railway (backend). 
 # os.environ["SUPABASE_URL"] reads the variable named "SUPABASE_URL" from te environment, which is safer than 

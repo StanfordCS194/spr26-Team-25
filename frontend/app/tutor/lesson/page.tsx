@@ -69,6 +69,9 @@ export default function LessonPage() {
   const sessionEndedRef = useRef(false);
   const router = useRouter();
 
+  // agrega este ref antes del useEffect
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const userId = session?.user?.id ?? '';
@@ -194,6 +197,30 @@ function LessonContent({ keepCaptions, onCaption }: { keepCaptions: boolean; onC
   const [canContinue, setCanContinue] = useState(false);
   const [caption, setCaption] = useState<Caption | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasStartedRef = useRef(false);
+
+  // trigger the first lesson message once the LiveKit room is connected.
+  // this replaces the backend-side generate_reply() call so the caption
+  // data channel is guaranteed to be ready before the first caption arrives.
+  useEffect(() => {
+    const startLesson = () => {
+        if (hasStartedRef.current) return;
+        hasStartedRef.current = true;
+        const data = new TextEncoder().encode(
+            JSON.stringify({ type: 'student_ready' })
+        );
+        room.localParticipant.publishData(data, { reliable: true, topic: 'lesson-control' });
+    };
+
+    // if room is already connected, start immediately
+    // otherwise wait for the Connected event
+    if (room.state === 'connected') {
+        startLesson();
+    } else {
+        room.once(RoomEvent.Connected, startLesson);
+        return () => { room.off(RoomEvent.Connected, startLesson); };
+    }
+  }, [room]);
 
   useDataChannel('captions', (msg) => {
     try {

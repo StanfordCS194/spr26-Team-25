@@ -15,6 +15,7 @@ class GlossaryRequest(BaseModel):
 class WordInfoRequest(BaseModel):
     word: str        # The individual word the user clicked
     info_type: str   # "translation" | "morphology" | "examples" | "etymology"
+    
 
 # Prompts for each type of information the user can request.
 # {word} is a placeholder filled in at request time inside word_info().
@@ -36,22 +37,113 @@ PROMPTS = {
         "Use plain text with simple alignment. No markdown symbols."
     ),
     "examples": (
-        "You are an expert in Ancient Greek literature.\n"
-        "Give 2–3 examples of the word «{word}» used in Ancient Greek classical texts.\n"
-        "For each example:\n"
-        "- The Greek quote (a short phrase or sentence)\n"
-        "- The source (author, work, book/chapter)\n"
-        "- English translation of the quote\n"
-        "Plain text only."
+       "You are an expert in Ancient Greek literature.\n"
+        "Return exactly 5 examples of «{word}» used in Ancient Greek classical texts.\n"
+        "Return ONLY a JSON array with this exact shape:\n"
+        "[\n"
+        '  {{\n'
+        '    "greek": "the Greek sentence or clause containing the word",\n'
+        '    "english": "English translation of the sentence",\n'
+        '    "source": "Author, Work Book.Line, e.g. Homer, Iliad 1.3"\n'
+        '  }}\n'
+        "]\n"
+        "Use real verifiable classical quotes. Return ONLY the JSON array, no other text."
     ),
-    "etymology": (
-        "You are an expert in Greek etymology.\n"
-        "Explain the etymology and word family of «{word}».\n"
-        "Include:\n"
-        "1. Root/stem meaning and Proto-Indo-European origin if known\n"
-        "2. Related Greek words (compounds, derivatives)\n"
-        "3. English or Spanish words derived from this Greek root\n"
-        "Keep it engaging and educational. 4–6 sentences. Plain text."
+    "related": (
+        "You are an Ancient Greek lexicographer.\n"
+        "Return related words for the Greek word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "word_family": [\n'
+        '    {{"greek": "related word", "english": "short gloss", "note": "e.g. adjective form or verbal noun"}}\n'
+        '  ],\n'
+        '  "semantic_field": [\n'
+        '    {{"greek": "related word", "english": "short gloss", "note": "brief note on how it differs from the searched word"}}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Word family: derivatives, compounds, and verbal forms from the same root. "
+        "Semantic field: words in the same conceptual area with a note explaining how each differs. "
+        "Include 3 to 5 entries per section. Return ONLY the JSON object, no other text."
+    ),
+    # new prompt type used by the dictionary page conjugation tab.
+    # returns structured JSON so the frontend can render a proper table,
+    # instead of plain text like the other prompts
+    "conjugation_table": (
+        "You are an Ancient Greek linguistics expert.\n"
+        "Analyze the word «{word}» and return a JSON object.\n\n"
+        "If it is a VERB, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "verb",\n'
+        '  "lemma": "dictionary form (1st person singular present)",\n'
+        '  "meaning": "to ...",\n'
+        '  "participles": {{"present": "...", "aorist": "...", "perfect": "..."}},\n'
+        '  "indicative": {{\n'
+        '    "tenses": ["Present", "Imperfect", "Aorist", "Future", "Perfect"],\n'
+        '    "rows": [\n'
+        '      {{"person": "1sg", "label": "ἐγώ", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "2sg", "label": "σύ", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "3sg", "label": "αὐτός", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "1pl", "label": "ἡμεῖς", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "2pl", "label": "ὑμεῖς", "forms": ["form", "form", "form", "form", "form"]}},\n'
+        '      {{"person": "3pl", "label": "αὐτοί", "forms": ["form", "form", "form", "form", "form"]}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "If it is a NOUN or ADJECTIVE, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "noun",\n'
+        '  "lemma": "dictionary form (nominative singular)",\n'
+        '  "meaning": "...",\n'
+        '  "gender": "masculine / feminine / neuter",\n'
+        '  "declension": {{\n'
+        '    "rows": [\n'
+        '      {{"case": "Nominative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Genitive",   "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Dative",     "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Accusative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Vocative",   "singular": "...", "plural": "..."}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "Return ONLY the JSON object, no other text."
+    ),
+    # structured dictionary entry, used by the /dictionary/[word] page.
+    # returns JSON so the frontend can render numbered definitions and examples
+    # like a proper lexicon entry, not plain text
+    "dictionary_entry": (
+        "You are an Ancient Greek lexicographer.\n"
+        "Create a full dictionary entry for the Greek word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "searched_word": "the exact word as searched, e.g. εστιν",\n'
+        '  "searched_form_info": "grammatical description of the searched form, e.g. 3rd person singular present indicative",\n'
+        '  "lemma": "citation form of the word",\n'
+        '  "pronunciation": "romanization of the LEMMA, not the searched form, e.g. EI-mi for εἰμί",\n'
+        '  "part_of_speech": "noun / verb / adjective / adverb / particle",\n'
+        '  "gender": "masculine / feminine / neuter, or null if not a noun",\n'
+        '  "period": "Ancient Greek / Modern Greek / Ancient and Modern Greek",\n'
+        '  "sections": [\n'
+        '    {{\n'
+        '      "label": "uppercase grammatical label, e.g. TRANSITIVE VERB or MASCULINE NOUN",\n'
+        '      "definitions": [\n'
+        '        {{\n'
+        '          "context": "brief usage context in parentheses, e.g. philosophical or referring to existence",\n'
+        '          "meanings": [\n'
+        '            {{\n'
+        '              "english": "English meaning",\n'
+        '              "example_greek": "short classical Greek phrase or sentence",\n'
+        '              "example_english": "English translation of the example",\n'
+        '              "source": "citation, e.g. Plato, Republic 514a or John 1:1 or Homer, Iliad 1.1, or null if unknown"\n'
+        '            }}\n'
+        '          ]\n'
+        '        }}\n'
+        '      ]\n'
+        '    }}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Include 1 to 3 sections, each with 1 to 3 definitions. "
+        "Use real classical examples from Homer, Plato, Aristotle, or the New Testament where possible. "
+        "Return ONLY the JSON object, no other text."
     ),
 }
 
@@ -108,7 +200,109 @@ async def word_info(req: WordInfoRequest):
     # Fill in the {word} placeholder with the actual word
     result = await _client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=600,
+        max_tokens=1200 if req.info_type in ("dictionary_entry", "conjugation_table") else 600,
+        messages=[{"role": "user", "content": prompt_template.format(word=req.word)}],
+    )
+
+    return {
+        "word": req.word,
+        "info_type": req.info_type,
+        "content": result.content[0].text.strip(),
+    }
+
+# Prompts for Old Norse word information, same pattern as PROMPTS above
+OLD_NORSE_PROMPTS = {
+    "examples": (
+        "You are an expert in Old Norse language and the Eddic sagas.\n"
+        "Return exactly 4 examples of the Old Norse word «{word}» used in Old Norse texts.\n"
+        "Return ONLY a JSON array with this exact shape:\n"
+        "[\n"
+        '  {{\n'
+        '    "norse": "the Old Norse sentence or clause containing the word",\n'
+        '    "english": "English translation of the sentence",\n'
+        '    "source": "e.g. Prose Edda, Gylfaginning or Heimskringla, Ynglinga saga"\n'
+        '  }}\n'
+        "]\n"
+        "Use real or plausible Old Norse sentences in the style of the Eddic sagas. "
+        "Return ONLY the JSON array, no other text."
+    ),
+    "related": (
+        "You are an Old Norse lexicographer.\n"
+        "Return related words for the Old Norse word «{word}».\n"
+        "Return ONLY a JSON object with this exact shape:\n"
+        "{{\n"
+        '  "word_family": [\n'
+        '    {{"norse": "related word", "english": "short gloss", "note": "e.g. adjective form or compound"}}\n'
+        '  ],\n'
+        '  "semantic_field": [\n'
+        '    {{"norse": "related word", "english": "short gloss", "note": "brief note on how it differs"}}\n'
+        '  ]\n'
+        "}}\n\n"
+        "Word family: derivatives and compounds from the same root. "
+        "Semantic field: conceptually related words with a note on how each differs. "
+        "Include 3 to 5 entries per section. Return ONLY the JSON object, no other text."
+    ),
+    "declension": (
+        "You are an Old Norse linguistics expert.\n"
+        "Analyze the word «{word}» and return a JSON object.\n\n"
+        "If it is a VERB, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "verb",\n'
+        '  "lemma": "infinitive form",\n'
+        '  "meaning": "to ...",\n'
+        '  "class": "strong class 1-7 or weak class 1-3",\n'
+        '  "indicative": {{\n'
+        '    "tenses": ["Present", "Past"],\n'
+        '    "rows": [\n'
+        '      {{"person": "1sg", "label": "ek", "forms": ["form", "form"]}},\n'
+        '      {{"person": "2sg", "label": "þú", "forms": ["form", "form"]}},\n'
+        '      {{"person": "3sg", "label": "hann", "forms": ["form", "form"]}},\n'
+        '      {{"person": "1pl", "label": "vér", "forms": ["form", "form"]}},\n'
+        '      {{"person": "2pl", "label": "þér", "forms": ["form", "form"]}},\n'
+        '      {{"person": "3pl", "label": "þeir", "forms": ["form", "form"]}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "If it is a NOUN, return exactly this shape:\n"
+        '{{\n'
+        '  "type": "noun",\n'
+        '  "lemma": "nominative singular form",\n'
+        '  "meaning": "...",\n'
+        '  "gender": "masculine / feminine / neuter",\n'
+        '  "declension": {{\n'
+        '    "rows": [\n'
+        '      {{"case": "Nominative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Accusative", "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Dative",     "singular": "...", "plural": "..."}},\n'
+        '      {{"case": "Genitive",   "singular": "...", "plural": "..."}}\n'
+        '    ]\n'
+        '  }}\n'
+        '}}\n\n'
+        "Return ONLY the JSON object, no other text."
+    ),
+    "gloss": (
+        "You are an Old Norse lexicographer.\n"
+        "Give a short English gloss (1 to 4 words) for the Old Norse word «{word}».\n"
+        "Return ONLY the gloss, no punctuation, no explanation.\n"
+        "Examples: day, to walk, strong, king of the gods"
+    ),
+}
+
+class OldNorseWordInfoRequest(BaseModel):
+    word: str
+    info_type: str  # "examples" | "related" | "declension"
+
+@router.post("/old-norse-word-info")
+async def old_norse_word_info(req: OldNorseWordInfoRequest):
+    # look up the prompt for the requested info type
+    prompt_template = OLD_NORSE_PROMPTS.get(req.info_type)
+    if not prompt_template:
+        return {"error": f"Unknown info_type: {req.info_type}"}
+
+    # fill in the word placeholder and call Claude Haiku
+    result = await _client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=800,
         messages=[{"role": "user", "content": prompt_template.format(word=req.word)}],
     )
 
