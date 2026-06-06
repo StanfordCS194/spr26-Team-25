@@ -908,9 +908,14 @@ async def run_eirini(ctx: JobContext):
                 # voice_name="en-GB-Wavenet-B",
                 # language_code="en-GB",
 
-                # try German man voice
-                voice_name="de-DE-Wavenet-B",
+                # # try German man voice
+                # voice_name="de-DE-Wavenet-B",
+                # language_code="de-DE",
+                
+                # try German woman voice
+                voice_name="de-DE-Wavenet-C",
                 language_code="de-DE",
+
                 # slightly slower than default so students can follow the unfamiliar sounds
                 speaking_rate=0.85,
             ) if is_old_norse else
