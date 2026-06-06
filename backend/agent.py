@@ -946,13 +946,13 @@ async def run_eirini(ctx: JobContext):
     )
 
     # # Simli avatar — uncomment once TTS is confirmed working end-to-end
-    avatar = simli.AvatarSession(
-        simli_config=simli.SimliConfig(
-            api_key=os.getenv("SIMLI_API_KEY"),
-            face_id=os.getenv("SIMLI_FACE_ID"),
-        ),
-    )
-    await avatar.start(session, room=ctx.room)
+    # avatar = simli.AvatarSession(
+    #     simli_config=simli.SimliConfig(
+    #         api_key=os.getenv("SIMLI_API_KEY"),
+    #         face_id=os.getenv("SIMLI_FACE_ID"),
+    #     ),
+    # )
+    # await avatar.start(session, room=ctx.room)
 
     # start the agent session. connects the pipeline to the LiveKit room
     await session.start(
