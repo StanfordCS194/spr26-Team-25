@@ -61,3 +61,8 @@ yarl==1.23.0
 zstandard==0.25.0
 google-cloud-texttospeech
 livekit-api
+livekit==1.1.7
+livekit-agents==1.5.7
+livekit-plugins-anthropic==1.5.7
+livekit-plugins-deepgram==1.5.7
+livekit-plugins-simli==1.5.7
