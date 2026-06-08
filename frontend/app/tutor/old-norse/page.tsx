@@ -27,9 +27,8 @@ interface NorseCaption {
 
 // use existing backgrounds until norse-themed ones are added
 const BACKGROUNDS = [
-  '/backgrounds/bg3.jpg',
-  '/backgrounds/bg4.jpg',
-  '/backgrounds/ruinas_noche_realista.jpg',
+  '/backgrounds/palacio_nordico.jpg',
+  '/backgrounds/patio_nordico.jpg',
 ];
 
 export default function OldNorsePage() {
