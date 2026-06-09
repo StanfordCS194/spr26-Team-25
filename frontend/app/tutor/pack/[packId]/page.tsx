@@ -17,7 +17,7 @@ interface PackMeta {
   status: string;
 }
 
-export default function PackChatPage({ params }: { params: { packId: string } }) {
+export default function PackChatPage() {
   const params = useParams();
   const packId = params.packId as string;
 
