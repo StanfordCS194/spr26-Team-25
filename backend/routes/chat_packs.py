@@ -8,6 +8,7 @@ from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
+from pathlib import Path
 import re
 
 load_dotenv()
@@ -110,3 +111,40 @@ async def chat_packs(body: PackChatMessage):
         "pack_id": body.pack_id,
         "level": body.level,
     }
+
+@router.get("/packs/{pack_id}")
+async def get_pack_meta(pack_id: str):
+    """Return display metadata for a single pack by id."""
+    try:
+        pack = _get_pack(pack_id)
+        return {
+            "id": pack.id,
+            "name": pack.displayName,
+            "tutorName": pack.tutor.name,
+            "status": pack.status,
+        }
+    except FileNotFoundError:
+        return JSONResponse(status_code=404, content={"error": f"Pack '{pack_id}' not found."})
+
+
+@router.get("/packs")
+async def list_packs():
+    """Return metadata for every pack found in the packs directory."""
+    packs_dir = Path(__file__).resolve().parents[1] / "packs"
+    result = []
+    for f in sorted(packs_dir.glob("*.json")):
+        # Skip the schema file since it is not a language pack
+        if f.name == "schema.json":
+            continue
+        try:
+            pack = _get_pack(f.stem)
+            result.append({
+                "id": pack.id,
+                "name": pack.displayName,
+                "tutorName": pack.tutor.name,
+                "status": pack.status,
+            })
+        except Exception:
+            # Skip any pack that fails to load rather than crashing the whole list
+            pass
+    return {"packs": result}
