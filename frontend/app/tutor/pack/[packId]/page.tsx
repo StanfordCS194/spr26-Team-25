@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 import { BACKEND_URL } from '@/lib/config';
 
@@ -18,7 +18,8 @@ interface PackMeta {
 }
 
 export default function PackChatPage({ params }: { params: { packId: string } }) {
-  const { packId } = params;
+  const params = useParams();
+  const packId = params.packId as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
