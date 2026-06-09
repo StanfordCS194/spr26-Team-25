@@ -32,7 +32,7 @@ def _get_pack(pack_id: str):
 
 class PackChatMessage(BaseModel):
     message: str
-    # which language pack to use, e.g. "ojibwe" or "classical-nahuatl"
+    # which language pack to use, e.g. "ojibwe" 
     pack_id: str
     level: str = "beginner"
     goal: str = "everyday-greetings"
