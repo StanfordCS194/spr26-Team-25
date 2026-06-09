@@ -83,6 +83,18 @@ const CATEGORIES = [
       },
     ],
   },
+  {
+    label: 'Language Packs',
+    flag: '🌍',
+    modes: [
+      {
+        emoji: '🌲',
+        title: 'Ojibwe with Nishin',
+        description: 'An endangered Algonquian language of the Great Lakes region',
+        href: '/tutor/pack/ojibwe',
+      },
+    ],
+  },
 ];
 
 export default function TutorSelectPage() {
