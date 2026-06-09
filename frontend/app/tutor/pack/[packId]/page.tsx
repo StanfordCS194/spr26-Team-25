@@ -31,12 +31,14 @@ export default function PackChatPage({ params }: { params: { packId: string } })
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login if the user is not authenticated
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/login');
-      }
-    });
+    // // Redirect to login if the user is not authenticated
+    // supabase.auth.getSession().then(({ data: { session } }) => {
+    //   if (!session) {
+    //     router.push('/login');
+    //   }
+    // });
+
+    // No login required for language pack pages right now
 
     // Fetch pack metadata so we can show the tutor name and language name
     fetch(`${BACKEND_URL}/api/packs/${packId}`)
@@ -49,9 +51,12 @@ export default function PackChatPage({ params }: { params: { packId: string } })
   async function sendMessage() {
     if (!input.trim()) return;
 
-    // Read the user id directly from the session at send time to avoid stale state
-    const { data: { session } } = await supabase.auth.getSession();
-    const currentUserId = session?.user?.id || null;
+    // // Read the user id directly from the session at send time to avoid stale state
+    // const { data: { session } } = await supabase.auth.getSession();
+    // const currentUserId = session?.user?.id || null;
+
+    // User id is null for unauthenticated users
+    const currentUserId = null;
 
     const userMessage: Message = { role: 'user', content: input };
     const newMessages = [...messages, userMessage];
