@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from routes.chat import router as chat_router
 from routes.livekit import router as livekit_router # generates LiveKit tokens for the voice tutor
 from routes.quechua_info import router as quechua_info_router
+from routes.chat_packs import router as chat_packs_router  # NEW: pack based chat for non-Greek languages. for language packs
 from supabase import create_client
 import os
 
@@ -33,6 +34,10 @@ app.include_router(word_info_router, prefix="/api")
 
 # register word info routes defined in routes/quechua_info.py
 app.include_router(quechua_info_router, prefix="/api")
+
+# register language pack based chat routes defined in routes/chat_packs.py
+# accessible at /api/chat-packs, handles non-Greek languages like Ojibwe
+app.include_router(chat_packs_router, prefix="/api")  # NEW
 
 # initializes the Supabase client using the environment variables stored in Railway (backend). 
 # os.environ["SUPABASE_URL"] reads the variable named "SUPABASE_URL" from te environment, which is safer than 
