@@ -66,3 +66,4 @@ livekit-agents==1.5.7
 livekit-plugins-anthropic==1.5.7
 livekit-plugins-deepgram==1.5.7
 livekit-plugins-simli==1.5.7
+jsonschema>=4.0
