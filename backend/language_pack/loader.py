@@ -22,7 +22,7 @@ from jsonschema import Draft202012Validator
 from .models import Dictionary, Grounding, LanguagePack, Vocabulary
 
 # Resolve packs/ at import time so callers don't pass paths repeatedly.
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKS_DIR = _REPO_ROOT / "packs"
 SCHEMA_PATH = PACKS_DIR / "schema.json"
 
