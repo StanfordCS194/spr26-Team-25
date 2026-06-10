@@ -53,8 +53,26 @@ async def chat_packs(body: PackChatMessage):
         import tempfile
         import json as json_module
         import os
+
+        # Resolve dictionaryRef for uploaded packs
+        pack_copy = dict(body.pack_data)
+        if 'grounding' in pack_copy and isinstance(pack_copy['grounding'], dict):
+            grounding = dict(pack_copy['grounding'])
+            dict_ref = grounding.pop('dictionaryRef', None)
+
+            if dict_ref is not None:
+                # If the pack id matches one on the server use that dictionary
+                pack_id = pack_copy.get('id', '')
+                server_dict = PACKS_DIR / pack_id / 'dictionary.json'
+                if server_dict.exists():
+                    grounding['dictionaryRef'] = str(server_dict)
+                # Otherwise the user must include the dictionary inline under grounding.dictionary
+                # so no action needed here for new languages
+
+            pack_copy['grounding'] = grounding
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, dir='/tmp') as f:
-            json_module.dump(body.pack_data, f)
+            json_module.dump(pack_copy, f)
             temp_path = f.name
         try:
             from language_pack import load_path
