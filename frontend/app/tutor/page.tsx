@@ -88,45 +88,50 @@ export default function TutorSelectPage() {
   const [streakJustIncremented, setStreakJustIncremented] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { router.push('/login'); return; }
+    const timeout = setTimeout(() => router.push('/login'), 8000);
 
-      // Prefer localStorage; fall back to Supabase metadata for returning users
-      // whose localStorage was cleared (e.g. after logout)
-      let saved = localStorage.getItem('chronos_profile');
-      if (!saved) {
-        const metaProfile = user.user_metadata?.profile;
-        if (metaProfile) {
-          localStorage.setItem('chronos_profile', JSON.stringify(metaProfile));
-          saved = JSON.stringify(metaProfile);
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        clearTimeout(timeout);
+        if (!user) { router.push('/login'); return; }
+
+        // Prefer localStorage; fall back to Supabase metadata for returning users
+        // whose localStorage was cleared (e.g. after logout)
+        let saved = localStorage.getItem('chronos_profile');
+        if (!saved) {
+          const metaProfile = user.user_metadata?.profile;
+          if (metaProfile) {
+            localStorage.setItem('chronos_profile', JSON.stringify(metaProfile));
+            saved = JSON.stringify(metaProfile);
+          }
         }
-      }
-      if (!saved) { router.push('/onboarding'); return; }
+        if (!saved) { router.push('/onboarding'); return; }
 
-      const name = user.user_metadata?.display_name as string | undefined;
-      const fallback = (user.email ?? '').split('@')[0];
-      setDisplayName(name || fallback);
+        const name = user.user_metadata?.display_name as string | undefined;
+        const fallback = (user.email ?? '').split('@')[0];
+        setDisplayName(name || fallback);
 
-      fetch(`${BACKEND}/api/vocabulary/by-user/${user.id}`)
-        .then(r => r.json())
-        .then(data => {
-          const all = data.vocabulary ?? [];
-          const visible = all.filter((w: any) => {
-            const lang = (w.language ?? 'greek').toLowerCase();
-            return !['old-norse', 'old_norse', 'norse'].includes(lang);
-          });
-          setWordCount(visible.length);
-        })
-        .catch(() => {});
+        fetch(`${BACKEND}/api/vocabulary/by-user/${user.id}`)
+          .then(r => r.json())
+          .then(data => {
+            const all = data.vocabulary ?? [];
+            const visible = all.filter((w: any) => {
+              const lang = (w.language ?? 'greek').toLowerCase();
+              return !['old-norse', 'old_norse', 'norse'].includes(lang);
+            });
+            setWordCount(visible.length);
+          })
+          .catch(() => {});
 
-      // update and read streak
-      const { data: streakData, justIncremented } = updateStreak();
-      setStreak(streakData.currentStreak);
-      setLongestStreak(streakData.longestStreak);
-      setStreakJustIncremented(justIncremented);
+        // update and read streak
+        const { data: streakData, justIncremented } = updateStreak();
+        setStreak(streakData.currentStreak);
+        setLongestStreak(streakData.longestStreak);
+        setStreakJustIncremented(justIncremented);
 
-      setReady(true);
-    });
+        setReady(true);
+      })
+      .catch(() => { clearTimeout(timeout); router.push('/login'); });
   }, []);
 
   if (!ready) return (

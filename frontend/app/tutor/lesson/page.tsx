@@ -9,6 +9,7 @@ import {
   useRoomContext,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
+import { RoomEvent } from 'livekit-client';
 import { supabase } from '@/lib/supabase';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
