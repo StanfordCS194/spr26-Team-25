@@ -64,15 +64,16 @@ export default function UploadInstructionsPage() {
             download="ojibwe.json"
             className="flex-1 bg-white/20 hover:bg-white/30 text-white px-4 py-3 rounded-xl text-sm transition-colors text-center"
           >
-            ⬇️ Download ojibwe.json
+            {'⬇️'} Download ojibwe.json
           </a>
           <button
             onClick={() => setShowJson(v => !v)}
             className="flex-1 bg-white/10 hover:bg-white/20 text-white/70 px-4 py-3 rounded-xl text-sm transition-colors"
           >
-            {showJson ? 'Hide' : '👁 View'} reference
+            {showJson ? 'Hide' : 'View reference'}
           </button>
         </div>
+        
 
         {/* Scrollable JSON preview */}
         {showJson && packJson && (
