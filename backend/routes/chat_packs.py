@@ -23,6 +23,7 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 # extract finds vocabulary words in the tutor's response
 # LearnerProfile holds the learner's level, goal, and time commitment
 from language_pack import load, compose, extract, LearnerProfile
+from language_pack.loader import PACKS_DIR
 
 
 @lru_cache(maxsize=16)
