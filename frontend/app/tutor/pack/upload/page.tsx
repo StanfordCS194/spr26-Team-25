@@ -59,7 +59,7 @@ export default function UploadInstructionsPage() {
 
         {/* Download and preview buttons for the reference pack */}
         <div className="flex gap-3">
-          
+          <a
             href="/packs/ojibwe.json"
             download="ojibwe.json"
             className="flex-1 bg-white/20 hover:bg-white/30 text-white px-4 py-3 rounded-xl text-sm transition-colors text-center"
