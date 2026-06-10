@@ -14,9 +14,10 @@ export interface PackMetadata {
   displayNameLocal?: string;
   status: LanguageStatus;
   family?: string;
-  // URL the loader will fetch when the pack body is needed. Convention:
-  // 'frontend/public/packs/<id>.json' (Next.js serves /packs/ from /public).
-  // If your deployment serves packs from a different origin, update here.
+  // URL the loader will fetch when the pack body is needed. The /api/packs/<id>
+  // route reads the pack from the repo's packs/ directory and resolves any
+  // dictionaryRef before returning JSON. Override here if your deployment
+  // serves packs from a different origin.
   url: string;
 }
 
@@ -27,7 +28,7 @@ export const REGISTRY: PackMetadata[] = [
     displayNameLocal: 'Ἑλληνική',
     status: 'vibrant',
     family: 'Indo-European',
-    url: '/packs/ancient-greek.json',
+    url: '/api/packs/ancient-greek',
   },
   {
     id: 'classical-nahuatl',
@@ -35,7 +36,7 @@ export const REGISTRY: PackMetadata[] = [
     displayNameLocal: 'Nāhuatlahtōlli',
     status: 'endangered',
     family: 'Uto-Aztecan',
-    url: '/packs/classical-nahuatl.json',
+    url: '/api/packs/classical-nahuatl',
   },
   {
     id: 'quechua',
@@ -43,7 +44,7 @@ export const REGISTRY: PackMetadata[] = [
     displayNameLocal: 'Runa Simi',
     status: 'endangered',
     family: 'Quechuan',
-    url: '/packs/quechua.json',
+    url: '/api/packs/quechua',
   },
   {
     id: 'old-norse',
@@ -51,7 +52,7 @@ export const REGISTRY: PackMetadata[] = [
     displayNameLocal: 'Norrœnt mál',
     status: 'dormant',
     family: 'Indo-European',
-    url: '/packs/old-norse.json',
+    url: '/api/packs/old-norse',
   },
   {
     id: 'ojibwe',
@@ -59,7 +60,7 @@ export const REGISTRY: PackMetadata[] = [
     displayNameLocal: 'Anishinaabemowin',
     status: 'endangered',
     family: 'Algonquian',
-    url: '/packs/ojibwe.json',
+    url: '/api/packs/ojibwe',
   },
 ];
 
