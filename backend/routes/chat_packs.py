@@ -35,6 +35,7 @@ class PackChatMessage(BaseModel):
     message: str
     # which language pack to use, e.g. "ojibwe" 
     pack_id: str
+    pack_data: Optional[dict] = None  # full pack JSON when user uploads their own pack
     level: str = "beginner"
     goal: str = "everyday-greetings"
     time_commitment: str = "30-60 minutes"
@@ -42,38 +43,52 @@ class PackChatMessage(BaseModel):
     user_id: Optional[str] = None
     history: list = []
 
-
 @router.post("/chat-packs")
 async def chat_packs(body: PackChatMessage):
-    # generate a new session id if the frontend did not send one
+    # Generate a new session id if the frontend did not send one
     session_id = body.session_id or str(uuid.uuid4())
 
-    # load the pack for this language, raises FileNotFoundError if pack does not exist
-    try:
-        pack = _get_pack(body.pack_id)
-    except FileNotFoundError:
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"Pack '{body.pack_id}' not found. Available packs: ojibwe, classical-nahuatl"}
-        )
+    if body.pack_data is not None:
+        # User uploaded a custom pack so write it to a temp file and load it through the normal loader
+        import tempfile
+        import json as json_module
+        import os
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, dir='/tmp') as f:
+            json_module.dump(body.pack_data, f)
+            temp_path = f.name
+        try:
+            from language_pack import load_path
+            pack = load_path(temp_path)
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Invalid pack: {str(e)}"})
+        finally:
+            os.unlink(temp_path)
+    else:
+        # Load a built in pack by id
+        try:
+            pack = _get_pack(body.pack_id)
+        except FileNotFoundError:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Pack '{body.pack_id}' not found."}
+            )
 
-    # build the learner profile from the request fields
+    # Build the learner profile from the request fields
     profile = LearnerProfile(
         level=body.level,
         goal=body.goal,
         time_commitment=body.time_commitment,
     )
 
-    # compose turns the pack data and learner profile into a full system prompt
-    # this replaces the hardcoded SYSTEM_PROMPT used in the original chat.py
+    # compose turns the pack and learner profile into a full system prompt
     system_prompt = compose(pack, profile)
 
-    # combine the conversation history with the new user message
+    # Combine the conversation history with the new user message
     messages = body.history + [
         {"role": "user", "content": body.message}
     ]
 
-    # call Claude with the pack generated system prompt
+    # Call Claude with the pack generated system prompt
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=1024,
@@ -83,26 +98,25 @@ async def chat_packs(body: PackChatMessage):
 
     assistant_response = response.content[0].text
 
-    # save the conversation to Supabase for learning progress tracking
+    # Save the conversation to Supabase for learning progress tracking
     supabase.table("conversations").insert([
         {"session_id": session_id, "role": "user", "content": body.message, "user_id": body.user_id},
         {"session_id": session_id, "role": "assistant", "content": assistant_response, "user_id": body.user_id},
     ]).execute()
 
-    # extract vocabulary words the tutor introduced in this response
-    # the pack defines the unicode ranges and line format so the extractor knows what to look for
+    # Extract vocabulary words the tutor introduced in this response
     try:
         vocab_rows = extract(pack, assistant_response, session_id=session_id)
         for row in vocab_rows:
             row["user_id"] = body.user_id
-            # the vocabulary table uses the column name "greek" for the target word
-            # we rename "word" to "greek" here to match the existing schema
+            # The vocabulary table column is named "greek" because in supabase the table column for target words is called "greek"
+            # We reuse it here to store the target word regardless of language
             if "word" in row:
                 row["greek"] = row.pop("word")
         if vocab_rows:
             supabase.table("vocabulary").insert(vocab_rows).execute()
     except Exception:
-        # vocabulary extraction is non-critical, do not crash the response if it fails
+        # Vocabulary extraction is non critical so do not crash the response if it fails
         pass
 
     return {
