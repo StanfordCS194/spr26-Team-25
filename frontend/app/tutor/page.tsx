@@ -93,6 +93,12 @@ const CATEGORIES = [
         description: 'An endangered Algonquian language of the Great Lakes region',
         href: '/tutor/pack/ojibwe',
       },
+      {
+        emoji: '📤',
+        title: 'Upload Your Own Pack',
+        description: 'Upload a custom language pack JSON file and start a session',
+        href: '/tutor/pack/upload',
+      },
     ],
   },
 ];
