@@ -52,9 +52,12 @@ export default function UploadInstructionsPage() {
             <li>For endangered or community-owned languages, set <code className="text-white/90">grounding.policy: "strict"</code> and attach a dictionary.</li>
             <li>Declare a license and attribution under <code className="text-white/90">sovereignty</code>.</li>
           </ol>
-          <p className="text-white/40 text-xs pt-1">
-            Full reference: <code>packs/README.md</code> and <code>packs/CONTRIBUTING.md</code> in the repo.
-          </p>
+          <button
+            onClick={() => router.push('/tutor/pack/docs')}
+            className="text-white/40 text-xs underline hover:text-white/70"
+          >
+            Full guide →
+          </button>
         </div>
 
         {/* Download and preview buttons for the reference pack */}
