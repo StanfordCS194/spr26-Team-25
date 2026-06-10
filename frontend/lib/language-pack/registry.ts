@@ -38,6 +38,22 @@ export const REGISTRY: PackMetadata[] = [
     url: '/packs/classical-nahuatl.json',
   },
   {
+    id: 'quechua',
+    displayName: 'Quechua',
+    displayNameLocal: 'Runa Simi',
+    status: 'endangered',
+    family: 'Quechuan',
+    url: '/packs/quechua.json',
+  },
+  {
+    id: 'old-norse',
+    displayName: 'Old Norse',
+    displayNameLocal: 'Norrœnt mál',
+    status: 'dormant',
+    family: 'Indo-European',
+    url: '/packs/old-norse.json',
+  },
+  {
     id: 'ojibwe',
     displayName: 'Ojibwe',
     displayNameLocal: 'Anishinaabemowin',
