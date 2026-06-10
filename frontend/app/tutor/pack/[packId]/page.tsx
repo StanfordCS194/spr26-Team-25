@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 import { BACKEND_URL } from '@/lib/config';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -137,7 +138,7 @@ export default function PackChatPage() {
                   ? 'bg-white/20 text-white'
                   : 'bg-white/10 text-white/90 backdrop-blur-sm border border-white/10'
               }`}>
-                {msg.content}
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
               </div>
             </div>
           ))}
