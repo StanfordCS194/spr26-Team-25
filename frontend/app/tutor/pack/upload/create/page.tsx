@@ -21,6 +21,9 @@ export default function UploadPackPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [dictData, setDictData] = useState<object | null>(null);
+  const [dictName, setDictName] = useState<string | null>(null);
+
   const router = useRouter();
 
   // Read the uploaded JSON file and extract basic metadata for display
@@ -42,6 +45,26 @@ export default function UploadPackPage() {
     };
     reader.readAsText(file);
   }
+
+  // Read the optional dictionary JSON file and store it
+  function handleDictUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        setDictData(json);
+        setDictName(file.name);
+        setError(null);
+      } catch {
+        setError('Invalid dictionary JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // Send the user message to the backend with the full pack attached
   async function sendMessage() {
     if (!input.trim() || !packData) return;
@@ -58,7 +81,10 @@ export default function UploadPackPage() {
       body: JSON.stringify({
         message: input,
         pack_id: 'custom',
-        pack_data: packData,
+        // If a dictionary file was uploaded, merge it into the pack grounding and clear any dictionaryRef
+        pack_data: dictData
+          ? { ...packData as object, grounding: { ...(packData as any).grounding, dictionary: dictData, dictionaryRef: undefined } }
+          : packData,
         level: 'beginner',
         goal: 'everyday greetings',
         time_commitment: '30-60 minutes',
@@ -121,6 +147,20 @@ export default function UploadPackPage() {
                 onChange={handleFileUpload}
               />
             </label>
+
+            {/* Optional dictionary file for large vocabularies */}
+            <div className="flex flex-col items-center gap-2">
+              <label className="cursor-pointer bg-white/10 hover:bg-white/20 text-white/70 px-6 py-3 rounded-xl text-sm transition-colors">
+                {dictName ? `📖 ${dictName}` : 'Add dictionary JSON (optional)'}
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleDictUpload}
+                />
+              </label>
+              <p className="text-white/30 text-xs">For packs with more than 50 words</p>
+            </div>
           </div>
         ) : (
           // Show chat UI once a pack is loaded
