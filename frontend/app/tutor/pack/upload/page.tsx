@@ -1,9 +1,19 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function UploadInstructionsPage() {
   const router = useRouter();
+  const [packJson, setPackJson] = useState<string | null>(null);
+  const [showJson, setShowJson] = useState(false);
+
+  // Fetch the reference pack so the user can read or copy it
+  useEffect(() => {
+    fetch('/packs/ojibwe.json')
+      .then(res => res.text())
+      .then(setPackJson);
+  }, []);
 
   return (
     <main
@@ -23,7 +33,7 @@ export default function UploadInstructionsPage() {
         ← Back
       </button>
 
-      <div className="relative z-10 w-full max-w-lg px-6 py-16 flex flex-col gap-6">
+      <div className="relative z-10 w-full max-w-lg px-6 py-16 flex flex-col gap-6 overflow-y-auto max-h-screen">
         <div className="text-center">
           <h1 className="text-white text-2xl font-semibold">📦 Create a Language Pack</h1>
           <p className="text-white/50 text-sm mt-2">
@@ -31,7 +41,7 @@ export default function UploadInstructionsPage() {
           </p>
         </div>
 
-        {/* Step by step instructions from packs/README.md */}
+        {/* Steps based on packs/README.md */}
         <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-5 text-sm text-white/80 space-y-3">
           <p className="text-white font-medium">How to build your pack</p>
           <ol className="list-decimal list-inside space-y-2 text-white/70">
@@ -46,6 +56,30 @@ export default function UploadInstructionsPage() {
             Full reference: <code>packs/README.md</code> and <code>packs/CONTRIBUTING.md</code> in the repo.
           </p>
         </div>
+
+        {/* Download and preview buttons for the reference pack */}
+        <div className="flex gap-3">
+          
+            href="/packs/ojibwe.json"
+            download="ojibwe.json"
+            className="flex-1 bg-white/20 hover:bg-white/30 text-white px-4 py-3 rounded-xl text-sm transition-colors text-center"
+          >
+            ⬇️ Download ojibwe.json
+          </a>
+          <button
+            onClick={() => setShowJson(v => !v)}
+            className="flex-1 bg-white/10 hover:bg-white/20 text-white/70 px-4 py-3 rounded-xl text-sm transition-colors"
+          >
+            {showJson ? 'Hide' : '👁 View'} reference
+          </button>
+        </div>
+
+        {/* Scrollable JSON preview */}
+        {showJson && packJson && (
+          <pre className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs text-white/70 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap">
+            {packJson}
+          </pre>
+        )}
 
         <button
           onClick={() => router.push('/tutor/pack/upload/create')}
