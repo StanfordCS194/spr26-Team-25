@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BACKEND_URL } from '@/lib/config';
+import { supabase } from '../../lib/supabase';
 
-// the three diagnostic questions shown to the user during onboarding
 const questions = [
   {
     id: 'experience',
@@ -24,33 +23,29 @@ const questions = [
 ];
 
 export default function Onboarding() {
-  // useRouter allows us to navigate to other pages programmatically
   const router = useRouter();
-
-  // track which question we're on (0, 1, or 2)
   const [step, setStep] = useState(0);
-
-  // store the user's answers as a key-value object, e.g. { experience: "beginner", goal: "philosophy" }
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  // called when the user clicks an answer option
   async function selectOption(option: string) {
-    // add the new answer to the existing answers without losing previous ones
     const newAnswers = { ...answers, [questions[step].id]: option };
     setAnswers(newAnswers);
 
     if (step < questions.length - 1) {
-      // more questions remain — advance to the next one
       setStep(step + 1);
     } else {
-      // all questions answered — save profile to localStorage for the tutor session
       localStorage.setItem('chronos_profile', JSON.stringify(newAnswers));
 
-      // also send the answers to Railway so we can track them in Supabase.
-      // wrapped in try/catch so that if this fails, the user still gets to the app
+      // persist profile to Supabase user metadata so it survives across devices/browsers
       try {
-        //await fetch('https://spr26-team-25-production.up.railway.app/onboarding', {
-        await fetch('${BACKEND_URL}/onboarding', {
+        await supabase.auth.updateUser({ data: { profile: newAnswers } });
+      } catch (err) {
+        console.error('failed to save profile to Supabase metadata:', err);
+      }
+
+      try {
+        const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+        await fetch(`${BACKEND}/onboarding`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -62,38 +57,54 @@ export default function Onboarding() {
       } catch (err) {
         console.error('failed to save onboarding response:', err);
       }
-      // go to verbal/audio tutor selection page 
+
       router.push('/tutor');
     }
   }
 
-  // the current question being displayed
   const current = questions[step];
 
   return (
-    <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold text-stone-800 mb-2">Chronos</h1>
-      <p className="text-stone-500 mb-10">Let's personalize your learning experience</p>
+    <main
+      className="min-h-screen relative flex flex-col items-center justify-center p-4"
+      style={{
+        backgroundImage: "url('/backgrounds/ruinas_noche_realista.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {/* dark overlay */}
+      <div className="absolute inset-0 bg-black/65" />
 
-      <div className="w-full max-w-lg bg-white rounded-xl shadow-md p-8">
+      {/* header */}
+      <div className="relative z-10 text-center mb-8">
+        <h1 className="text-white text-2xl font-semibold tracking-wide">Χρόνος</h1>
+        <p className="text-white/40 text-sm mt-1">Let's personalise your learning experience</p>
+      </div>
 
-        {/* progress bar — one segment per question, filled up to the current step */}
+      {/* card */}
+      <div className="relative z-10 w-full max-w-lg bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8">
+
+        {/* progress bar */}
         <div className="flex gap-2 mb-8">
           {questions.map((_, i) => (
-            <div key={i} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-stone-800' : 'bg-stone-200'}`} />
+            <div
+              key={i}
+              className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                i <= step ? 'bg-amber-400' : 'bg-white/20'
+              }`}
+            />
           ))}
         </div>
 
-        {/* the current question text */}
-        <h2 className="text-xl font-semibold text-stone-800 mb-6">{current.question}</h2>
+        <h2 className="text-white text-xl font-semibold mb-6">{current.question}</h2>
 
-        {/* answer options — each is a clickable button */}
         <div className="space-y-3">
           {current.options.map((option) => (
             <button
               key={option}
               onClick={() => selectOption(option)}
-              className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 hover:border-stone-800 hover:bg-stone-50 text-stone-700 transition-all"
+              className="w-full text-left px-4 py-3 rounded-xl border border-white/20 hover:border-amber-400/60 hover:bg-white/10 text-white/70 hover:text-white transition-all"
             >
               {option}
             </button>
@@ -101,8 +112,9 @@ export default function Onboarding() {
         </div>
       </div>
 
-      {/* shows the user which question they're on */}
-      <p className="text-stone-400 text-sm mt-6">Question {step + 1} of {questions.length}</p>
+      <p className="relative z-10 text-white/30 text-xs mt-6">
+        Question {step + 1} of {questions.length}
+      </p>
     </main>
   );
 }

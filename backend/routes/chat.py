@@ -164,8 +164,52 @@ async def get_vocabulary(session_id: str):
         .eq("session_id", session_id)\
         .order("created_at")\
         .execute()
-    
+
     return {"vocabulary": result.data}
+
+
+@router.get("/vocabulary/by-user/{user_id}")
+async def get_vocabulary_by_user(user_id: str):
+    """
+    Returns all vocabulary words a user has ever learned, across all sessions.
+    Used by the settings/profile page to display lifetime vocabulary history.
+    """
+    result = supabase.table("vocabulary")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .order("created_at")\
+        .execute()
+
+    return {"vocabulary": result.data}
+
+
+@router.get("/conversations/recent/{user_id}")
+async def get_recent_conversation(user_id: str):
+    """
+    Returns the most recent chat session's messages for a user.
+    The frontend calls this on mount to restore the last conversation.
+    """
+    # Find the most recent session_id for this user
+    latest = supabase.table("conversations")\
+        .select("session_id")\
+        .eq("user_id", user_id)\
+        .order("created_at", desc=True)\
+        .limit(1)\
+        .execute()
+
+    if not latest.data:
+        return {"session_id": None, "messages": []}
+
+    session_id = latest.data[0]["session_id"]
+
+    # Fetch all messages from that session in chronological order
+    msgs = supabase.table("conversations")\
+        .select("role, content")\
+        .eq("session_id", session_id)\
+        .order("created_at")\
+        .execute()
+
+    return {"session_id": session_id, "messages": msgs.data}
 
 @router.post("/speak")
 async def speak(body: dict):
