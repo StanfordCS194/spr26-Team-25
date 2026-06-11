@@ -1,0 +1,32 @@
+[
+{
+  "directory": "C:/Users/A/Downloads/preproc/build",
+  "command": "C:\\Strawberry\\c\\bin\\g++.exe -IC:/Users/A/Downloads/preproc/src -IC:/Users/A/Downloads/preproc/lib -g -std=c++23 -Wall -Wextra -Wpedantic -o CMakeFiles\\parser.dir\\src\\main.cpp.obj -c C:\\Users\\A\\Downloads\\preproc\\src\\main.cpp",
+  "file": "C:\\Users\\A\\Downloads\\preproc\\src\\main.cpp",
+  "output": "CMakeFiles\\parser.dir\\src\\main.cpp.obj"
+},
+{
+  "directory": "C:/Users/A/Downloads/preproc/build",
+  "command": "C:\\Strawberry\\c\\bin\\g++.exe -IC:/Users/A/Downloads/preproc/src -IC:/Users/A/Downloads/preproc/lib -g -std=c++23 -Wall -Wextra -Wpedantic -o CMakeFiles\\parser.dir\\src\\csvparser.cpp.obj -c C:\\Users\\A\\Downloads\\preproc\\src\\csvparser.cpp",
+  "file": "C:\\Users\\A\\Downloads\\preproc\\src\\csvparser.cpp",
+  "output": "CMakeFiles\\parser.dir\\src\\csvparser.cpp.obj"
+},
+{
+  "directory": "C:/Users/A/Downloads/preproc/build",
+  "command": "C:\\Strawberry\\c\\bin\\g++.exe -IC:/Users/A/Downloads/preproc/src -IC:/Users/A/Downloads/preproc/lib -g -std=c++23 -Wall -Wextra -Wpedantic -o CMakeFiles\\parser.dir\\src\\plxparser.cpp.obj -c C:\\Users\\A\\Downloads\\preproc\\src\\plxparser.cpp",
+  "file": "C:\\Users\\A\\Downloads\\preproc\\src\\plxparser.cpp",
+  "output": "CMakeFiles\\parser.dir\\src\\plxparser.cpp.obj"
+},
+{
+  "directory": "C:/Users/A/Downloads/preproc/build",
+  "command": "C:\\Strawberry\\c\\bin\\g++.exe -IC:/Users/A/Downloads/preproc/src -IC:/Users/A/Downloads/preproc/lib -g -std=c++23 -Wall -Wextra -Wpedantic -o CMakeFiles\\parser.dir\\src\\text_encoding.cpp.obj -c C:\\Users\\A\\Downloads\\preproc\\src\\text_encoding.cpp",
+  "file": "C:\\Users\\A\\Downloads\\preproc\\src\\text_encoding.cpp",
+  "output": "CMakeFiles\\parser.dir\\src\\text_encoding.cpp.obj"
+},
+{
+  "directory": "C:/Users/A/Downloads/preproc/build",
+  "command": "C:\\Strawberry\\c\\bin\\g++.exe -IC:/Users/A/Downloads/preproc/src -IC:/Users/A/Downloads/preproc/lib -g -std=c++23 -Wall -Wextra -Wpedantic -o CMakeFiles\\parser.dir\\lib\\ipa_generator.cpp.obj -c C:\\Users\\A\\Downloads\\preproc\\lib\\ipa_generator.cpp",
+  "file": "C:\\Users\\A\\Downloads\\preproc\\lib\\ipa_generator.cpp",
+  "output": "CMakeFiles\\parser.dir\\lib\\ipa_generator.cpp.obj"
+}
+]
