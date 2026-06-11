@@ -1,0 +1,12 @@
+# ninja log v6
+71	3063	8011887263480805	CMakeFiles/parser.dir/lib/ipa_generator.cpp.obj	30bd06295a5b6952
+45	2581	8011887263162894	CMakeFiles/parser.dir/src/csvparser.cpp.obj	ad964d7286416400
+63	1658	8011887263351398	CMakeFiles/parser.dir/src/text_encoding.cpp.obj	ac555576ef0d3ea0
+4845	5154	8011833618203492	bin/Debug/parser.exe	857048ade12aa5f9
+5382	5971	8004061682449822	bin/parser.exe	c4758bde1725c601
+138	163	8011887196691682	clean	139b443fbd37261f
+54	3470	8011887263250286	CMakeFiles/parser.dir/src/plxparser.cpp.obj	b77d8f11b85bef2c
+37	3088	8011887263066916	CMakeFiles/parser.dir/src/main.cpp.obj	1266396041eced28
+60	3531	8011842234582705	CMakeFiles/parser.dir/lib/nahuatl_ipa_processor.cpp.obj	8b763600f862a6a1
+48	137	8011887195744810	CMakeFiles/clean.additional	cc874fa4c5e9133c
+3473	3719	8011887297445358	C:/Users/A/Downloads/preproc/parser.exe	a4e38191ec1f27d4

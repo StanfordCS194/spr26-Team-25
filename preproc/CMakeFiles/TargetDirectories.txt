@@ -1,0 +1,7 @@
+C:/Users/A/Downloads/preproc/CMakeFiles/parser.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/edit_cache.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/rebuild_cache.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/list_install_components.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/install.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/install/local.dir
+C:/Users/A/Downloads/preproc/CMakeFiles/install/strip.dir

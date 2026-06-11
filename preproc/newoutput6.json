@@ -1,0 +1,44 @@
+{
+  "dictionary": {
+    "cafen": {
+      "translation": "café",
+      "ipa": "/kafen/"
+    },
+    "mazatl": {
+      "translation": "ciervo",
+      "ipa": "/masatɬ/"
+    },
+    "mixtli": {
+      "translation": "nube",
+      "ipa": "/miʃtɬi/"
+    },
+    "nehpalli": {
+      "translation": "cactus",
+      "ipa": "/nehpal:i/"
+    },
+    "oreganoh": {
+      "translation": "orégano",
+      "ipa": "/oɾeganoh/"
+    },
+    "pimientoh": {
+      "translation": "pimieno",
+      "ipa": "/pimientoh/"
+    },
+    "tlaxcalli": {
+      "translation": "tortilla",
+      "ipa": "/tɬaʃkal:i/"
+    },
+    "tocomahlti": {
+      "translation": "ardilla",
+      "ipa": "/tokomahlti/"
+    },
+    "zacatl": {
+      "translation": "césped",
+      "ipa": "/sakatɬ/"
+    },
+    "zayolin": {
+      "translation": "mosca",
+      "ipa": "/sajolin/"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lexicon version="1.0"
+         xmlns="http://www.w3.org/2005/01/pronunciation-lexicon"
+         xml:lang="es-MX"
+         alphabet="ipa">
+
+  <!--
+    General sound-unit lexicon.
+    These graphemes are small units (not full words), so IPA can be composed
+    by scanning a term and concatenating mapped units.
+
+    Long units should be preferred by the parser before short ones.
+  -->
+
+  <!-- Common multi-letter units -->
+  <lexeme><grapheme>ch</grapheme><phoneme>tʃ</phoneme></lexeme>
+  <lexeme><grapheme>tz</grapheme><phoneme>ts</phoneme></lexeme>
+  <lexeme><grapheme>tl</grapheme><phoneme>tɬ</phoneme></lexeme>
+  <lexeme><grapheme>hu</grapheme><phoneme>w</phoneme></lexeme>
+  <lexeme><grapheme>qu</grapheme><phoneme>k</phoneme></lexeme>
+  <lexeme><grapheme>ll</grapheme><phoneme>l:</phoneme></lexeme>
+  <lexeme><grapheme>rr</grapheme><phoneme>r</phoneme></lexeme>
+
+  <!-- Context patterns for c -->
+  <lexeme><grapheme>ca</grapheme><phoneme>ka</phoneme></lexeme>
+  <lexeme><grapheme>ce</grapheme><phoneme>se</phoneme></lexeme>
+  <lexeme><grapheme>ci</grapheme><phoneme>si</phoneme></lexeme>
+  <lexeme><grapheme>co</grapheme><phoneme>ko</phoneme></lexeme>
+  <lexeme><grapheme>cu</grapheme><phoneme>ku</phoneme></lexeme>
+
+  <!-- Context patterns for cu: cua/cue/cui -> kwa/kwe/kwi, cuo -> kuo -->
+  <lexeme><grapheme>cua</grapheme><phoneme>kwa</phoneme></lexeme>
+  <lexeme><grapheme>cue</grapheme><phoneme>kwe</phoneme></lexeme>
+  <lexeme><grapheme>cui</grapheme><phoneme>kwi</phoneme></lexeme>
+  <lexeme><grapheme>cuo</grapheme><phoneme>kuo</phoneme></lexeme>
+
+  <!-- Vowels -->
+  <lexeme><grapheme>a</grapheme><phoneme>a</phoneme></lexeme>
+  <lexeme><grapheme>e</grapheme><phoneme>e</phoneme></lexeme>
+  <lexeme><grapheme>i</grapheme><phoneme>i</phoneme></lexeme>
+  <lexeme><grapheme>o</grapheme><phoneme>o</phoneme></lexeme>
+  <lexeme><grapheme>u</grapheme><phoneme>u</phoneme></lexeme>
+  <lexeme><grapheme>aa</grapheme><phoneme>a:</phoneme></lexeme>
+  <lexeme><grapheme>ee</grapheme><phoneme>e:</phoneme></lexeme>
+  <lexeme><grapheme>ii</grapheme><phoneme>i:</phoneme></lexeme>
+  <lexeme><grapheme>oo</grapheme><phoneme>o:</phoneme></lexeme>
+  <lexeme><grapheme>uu</grapheme><phoneme>u:</phoneme></lexeme>
+
+  <!-- Consonants -->
+  <lexeme><grapheme>b</grapheme><phoneme>b</phoneme></lexeme>
+  <lexeme><grapheme>c</grapheme><phoneme>k</phoneme></lexeme>
+  <lexeme><grapheme>d</grapheme><phoneme>d</phoneme></lexeme>
+  <lexeme><grapheme>f</grapheme><phoneme>f</phoneme></lexeme>
+  <lexeme><grapheme>g</grapheme><phoneme>g</phoneme></lexeme>
+  <lexeme><grapheme>h</grapheme><phoneme>h</phoneme></lexeme>
+  <lexeme><grapheme>j</grapheme><phoneme>x</phoneme></lexeme>
+  <lexeme><grapheme>k</grapheme><phoneme>k</phoneme></lexeme>
+  <lexeme><grapheme>l</grapheme><phoneme>l</phoneme></lexeme>
+  <lexeme><grapheme>m</grapheme><phoneme>m</phoneme></lexeme>
+  <lexeme><grapheme>n</grapheme><phoneme>n</phoneme></lexeme>
+  <lexeme><grapheme>p</grapheme><phoneme>p</phoneme></lexeme>
+  <lexeme><grapheme>q</grapheme><phoneme>k</phoneme></lexeme>
+  <lexeme><grapheme>r</grapheme><phoneme>ɾ</phoneme></lexeme>
+  <lexeme><grapheme>s</grapheme><phoneme>s</phoneme></lexeme>
+  <lexeme><grapheme>t</grapheme><phoneme>t</phoneme></lexeme>
+  <lexeme><grapheme>v</grapheme><phoneme>b</phoneme></lexeme>
+  <lexeme><grapheme>w</grapheme><phoneme>w</phoneme></lexeme>
+  <lexeme><grapheme>x</grapheme><phoneme>ʃ</phoneme></lexeme>
+  <lexeme><grapheme>y</grapheme><phoneme>j</phoneme></lexeme>
+  <lexeme><grapheme>z</grapheme><phoneme>s</phoneme></lexeme>
+
+  <!--
+    Full-word IPA entries with language-specific stress placement.
+    These entries override the sound-unit composition and are used as-is.
+    This allows different languages to specify stress patterns per-word.
+    
+    Format: <grapheme>word</grapheme><phoneme>/stressed-ipa/</phoneme>
+    
+    For Nahuatl, common stress patterns include:
+    - Penultimate syllable stress (most common)
+    - Word-initial stress (some words)
+    - Other irregular patterns
+    
+    Examples (add as needed):
+    <lexeme><grapheme>ixcocopetza</grapheme><phoneme>/iʃkoko'petsa/</phoneme></lexeme>
+    <lexeme><grapheme>maatequia</grapheme><phoneme>/'maatekia/</phoneme></lexeme>
+  -->
+
+</lexicon>
